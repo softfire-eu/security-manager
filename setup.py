@@ -10,15 +10,15 @@ def read(fname):
         readme_file = open(readme_file_path)
         return readme_file.read()
     else:
-        return "The SoftFIRE XXX Manager"
+        return "The SoftFIRE Security Manager"
 
 
 setup(
-    name="xxx-manager",
+    name="security-manager",
     version="0.0.1",
     author="SoftFIRE",
     author_email="softfire@softfire.eu",
-    description="The SoftFIRE XXX Manager",
+    description="The SoftFIRE Security Manager",
     license="Apache 2",
     keywords="python vnfm nfvo open baton openbaton sdk experiment manager softfire tosca openstack rest",
     url="http://softfire.eu/",
@@ -27,6 +27,9 @@ setup(
     install_requires=[
         'asyncio',
         'grpcio',
+        'softfire-sdk',
+        'tosca-parser',
+        'openbaton-cli'
     ],
     long_description=read('README.rst'),
     classifiers=[
