@@ -1,10 +1,8 @@
-<<<<<<< HEAD
 
 .venv/
+.venv_destination/
 
 ### Python template
-=======
->>>>>>> 5495f47e96b2796070c8d5f5036e47364a0bbaa1
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -27,10 +25,7 @@ lib64/
 parts/
 sdist/
 var/
-<<<<<<< HEAD
 wheels/
-=======
->>>>>>> 5495f47e96b2796070c8d5f5036e47364a0bbaa1
 *.egg-info/
 .installed.cfg
 *.egg
@@ -77,11 +72,7 @@ docs/_build/
 # PyBuilder
 target/
 
-<<<<<<< HEAD
 # Jupyter Notebook
-=======
-# IPython Notebook
->>>>>>> 5495f47e96b2796070c8d5f5036e47364a0bbaa1
 .ipynb_checkpoints
 
 # pyenv
@@ -90,20 +81,14 @@ target/
 # celery beat schedule file
 celerybeat-schedule
 
-<<<<<<< HEAD
 # SageMath parsed files
 *.sage.py
 
-=======
->>>>>>> 5495f47e96b2796070c8d5f5036e47364a0bbaa1
 # dotenv
 .env
 
 # virtualenv
-<<<<<<< HEAD
 .venv
-=======
->>>>>>> 5495f47e96b2796070c8d5f5036e47364a0bbaa1
 venv/
 ENV/
 
@@ -112,7 +97,6 @@ ENV/
 
 # Rope project settings
 .ropeproject
-<<<<<<< HEAD
 ### VirtualEnv template
 # Virtualenv
 # http://iamzed.com/2009/05/07/a-primer-on-virtualenv/
@@ -229,5 +213,4 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
-=======
->>>>>>> 5495f47e96b2796070c8d5f5036e47364a0bbaa1
+
