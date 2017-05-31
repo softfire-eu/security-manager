@@ -28,8 +28,10 @@ setup(
         'asyncio',
         'grpcio',
         'softfire-sdk',
-        'tosca-parser',
-        'openbaton-cli'
+        'tosca-parser', #probably not needed
+        'openbaton-cli',
+        'pyyaml',
+        'IPy'
     ],
     long_description=read('README.rst'),
     classifiers=[

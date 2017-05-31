@@ -7,6 +7,7 @@ where the runner script is in /usr/bin (or wherever)
 """
 from sdk.softfire.main import start_manager
 from eu.softfire.SecurityManager import SecurityManager
+from eu.softfire.utils.utils import get_logger
 
 import os
 
@@ -14,6 +15,7 @@ def start():
     os.environ["http_proxy"] = ""
     #print(os.environ["http_proxy"])
     #print(os.environ["no_proxy"])
+    #sec_man = SecurityManager(get_logger("eu.softfire.security-manager"))
     sec_man = SecurityManager()
     start_manager(sec_man, 'etc/security-manager.ini')
 
