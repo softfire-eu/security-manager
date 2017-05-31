@@ -5,9 +5,10 @@ from eu.softfire.utils.utils import get_logger
 from IPy import IP
 from eu.softfire.utils.utils import config_path
 import yaml
-import sqlite3, requests
+import sqlite3, requests, tarfile
 
 logger = get_logger(config_path)
+ip_lists = ["allowed_ips", "denied_ips"]
 
 class SecurityManager(AbstractManager):
 
@@ -63,7 +64,6 @@ class SecurityManager(AbstractManager):
                 return
 
             '''Check syntax'''
-            ip_lists = ["allowed_ips", "denied_ips"]
             for ip_list in ip_lists :
                 if (ip_list in properties) :
                     for ip in properties[ip_list]:
@@ -82,47 +82,75 @@ class SecurityManager(AbstractManager):
                 logger.info("testbed does not contain a valid value")
                 return
 
+            self.provide_resources(user_info, payload)
+
             return messages_pb2.ResponseMessage(result=-1)
 
     def provide_resources(self, user_info, payload=None):
+        #TODO REMOVE
+        user_info = {}
+        user_info["name"] = "experimenter"
+        user_info["id"] = "abababab"
+        nsr_id = "test"
+
         logger.info("Requested provide_resources by user %s" % user_info["name"])
 
-        local_files_path = self.get_config_value("files", "path", "/etc/softfire/security-manager")
+        local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
+        tmp_files_path = "%s/tmp" % local_files_path
 
         resource = yaml.load(payload)
         properties = resource["properties"]
 
         '''Download scripts from remote Repository'''
         scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
-        #TODO Check if can be done better
-        filename = "%s/tmp/%s" % (local_files_path, properties["resource_id"])
+        tar_filename = "%s/tmp/%s.tar" % (local_files_path, properties["resource_id"])
 
         r = requests.get(scripts_url, stream=True)
-        with open(filename, 'wb') as fd:
+        with open(tar_filename, 'wb') as fd:
             for chunk in r.iter_content(chunk_size=128):
                 fd.write(chunk)
+
+        tar = tarfile.open(name=tar_filename, mode="r")
+        tar.extractall(path=tmp_files_path)
 
         response = {}
         if properties["resource_id"] == "firewall" :
             #TODO modify scripts with custom configuration
+            ufw_script = "%s/scripts/ufw.sh" % tmp_files_path
+            with open(ufw_script, "a") as fd:
+                '''Set default rule'''
+                fd.write("curl -X POST -H \"Content-Type: text/plain\" -d 'default %s' http://localhost:5000/ufw/rules\n" % properties["default_rule"])
+                for ip_list in ip_lists :
+                    if ip_list in properties:
+                        for ip in properties[ip_list]:
+                            if ip_list == "allowed_ips" :
+                                rule = "allow from %s" % ip
+                            else :
+                                rule = "deny from %s" % ip
+                            fd.write("curl -X POST -H \"Content-Type: text/plain\" -d '%s' http://localhost:5000/ufw/rules\n" % rule)
 
-            if properties["want_agent"] == "True" :
-                #TODO send link to the user to download her scripts
-                response["scripts_url"] = "%s/%s/scripts.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
-                pass
-            else :
-                # TODO deploy VM on the specified testbed and send back IP address
-                nsr_id = ""
-                # TODO store reference between resource and user
-                conn = sqlite3.connect('%s/security-manager.db' % files_path)
-                cur = conn.cursor()
-                cur.execute('''CREATE TABLE IF NOT EXISTS resources
-                                (username, nsr_id)''')
-                cur.execute("INSERT INTO resources (username, nsr_id) VALUES (%s, %s)" % (user_info["id"], nsr_id))
-                conn.commit()
-                conn.close()
+                if properties["want_agent"] == "True" :
+                    #TODO send link to the user to download her scripts
+                    #TODO tar scripts folder and store it locally
+                    pass
+                else :
+                    # TODO deploy VM on the specified testbed and send back IP address
+					# TODO store reference between resource and user
+                    conn = sqlite3.connect('%s/security-manager.db' % local_files_path)
+                    cur = conn.cursor()
+                    cur.execute('''CREATE TABLE IF NOT EXISTS resources
+                                    (username, nsr_id)''')
+                    query = "INSERT INTO resources (username, nsr_id) VALUES ('%s', '%s')" % (user_info["id"], nsr_id)
+                    logger.debug("Executing %s" % query)
 
-        return messages_pb2.ProvideResourceResponse(resources="content")
+                    ################
+                    query = "DELETE FROM resources WHERE username = '%s'" % user_info["id"]
+                    ################
+                    cur.execute(query)
+                    conn.commit()
+                    conn.close()
+
+        return #messages_pb2.ProvideResourceResponse(resources="content")
 
     def release_resources(self, user_info, payload=None):
         logger.info("Requested release_resources by user %s" % user_info["name"])
