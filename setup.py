@@ -31,7 +31,8 @@ setup(
         'tosca-parser', #probably not needed
         'openbaton-cli',
         'pyyaml',
-        'IPy'
+        'IPy',
+        'requests'
     ],
     long_description=read('README.rst'),
     classifiers=[
