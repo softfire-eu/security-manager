@@ -1,14 +1,18 @@
 from sdk.softfire.manager import AbstractManager
 from sdk.softfire.grpc import messages_pb2
-from sdk.softfire.utils import get_config
 from eu.softfire.utils.utils import get_logger
 from IPy import IP
 from eu.softfire.utils.utils import config_path
+from eu.softfire.exceptions.exceptions import *
 import yaml
 import sqlite3, requests, tarfile
 
 logger = get_logger(config_path)
 ip_lists = ["allowed_ips", "denied_ips"]
+
+def add_rule_to_fw(fd, rule) :
+    fd.write("curl -X POST -H \"Content-Type: text/plain\" -d '%s' http://localhost:5000/ufw/rules\n" % rule)
+
 
 class SecurityManager(AbstractManager):
 
@@ -41,16 +45,15 @@ class SecurityManager(AbstractManager):
         result.append(messages_pb2.ResourceMetadata(resource_id=resource_id, description=description, cardinality=cardinality, node_type=node_type, testbed=testbed))
         return result
 
-    def validate_resources(self, user_info=None, payload=None):
+    def validate_resources(self, user_info=None, payload=None) -> None:
+        return
         resource = yaml.load(payload)
         logger.debug("Validating resource %s" % resource)
         '''
         :param payload: yaml string containing the resource definition
         '''
         print(user_info)
-        #TODO send errors to experiment manager
         properties = resource["properties"]
-
 
         if properties["resource_id"] == "firewall" :
             '''Required properties are already defined in the template'''
@@ -59,9 +62,11 @@ class SecurityManager(AbstractManager):
             if properties["default_rule"] == "allow" or properties["default_rule"] == "deny":
                 pass
             else :
-                logger.info("default_rule does not contain a valid value")
+                message = "default_rule does not contain a valid value"
+                logger.info(message)
                 # TODO send error to experiment-manager
-                return
+                raise ResourceValidationError(message=message)
+
 
             '''Check syntax'''
             for ip_list in ip_lists :
@@ -71,20 +76,21 @@ class SecurityManager(AbstractManager):
                         try :
                             IP(ip)
                         except ValueError :
-                            logger.info("%s contains unvalid values" % ip_list)
-                            #TODO send error to experiment-manager
-                            return
+                            message = "%s contains invalid values" % ip_list
+                            logger.info(message)
+                            raise ResourceValidationError(message=message)
 
             '''Check testbed vale'''
             testbeds = ["fokus", "ericsson", "ads", "dt"]
-            if (not properties["testbed"] in testbeds) and (properties["want_agent"] == "False") :
-                #TODO send error to experiment-manager
-                logger.info("testbed does not contain a valid value")
-                return
+            if (not properties["want_agent"]) and (not properties["testbed"] in testbeds) :
+                message = "testbed does not contain a valid value"
+                logger.info(message)
+                raise ResourceValidationError(message=message)
 
+            ####### for test ######
             self.provide_resources(user_info, payload)
-
-            return messages_pb2.ResponseMessage(result=-1)
+            ######################
+            return
 
     def provide_resources(self, user_info, payload=None):
         #TODO REMOVE
@@ -112,47 +118,70 @@ class SecurityManager(AbstractManager):
 
         tar = tarfile.open(name=tar_filename, mode="r")
         tar.extractall(path=tmp_files_path)
+        tar.close()
 
-        response = {}
+        response = []
         if properties["resource_id"] == "firewall" :
             #TODO modify scripts with custom configuration
             ufw_script = "%s/scripts/ufw.sh" % tmp_files_path
             with open(ufw_script, "a") as fd:
                 '''Set default rule'''
-                fd.write("curl -X POST -H \"Content-Type: text/plain\" -d 'default %s' http://localhost:5000/ufw/rules\n" % properties["default_rule"])
+                add_rule_to_fw(fd, "default %s" % properties["default_rule"])
+                #fd.write("curl -X POST -H \"Content-Type: text/plain\" -d 'default %s' http://localhost:5000/ufw/rules\n" % properties["default_rule"])
+
+                '''Set rules for list of IPs'''
                 for ip_list in ip_lists :
                     if ip_list in properties:
                         for ip in properties[ip_list]:
                             if ip_list == "allowed_ips" :
+
                                 rule = "allow from %s" % ip
                             else :
                                 rule = "deny from %s" % ip
-                            fd.write("curl -X POST -H \"Content-Type: text/plain\" -d '%s' http://localhost:5000/ufw/rules\n" % rule)
+                            add_rule_to_fw(fd, rule)
+                            #fd.write("curl -X POST -H \"Content-Type: text/plain\" -d '%s' http://localhost:5000/ufw/rules\n" % rule)
 
-                if properties["want_agent"] == "True" :
-                    #TODO send link to the user to download her scripts
-                    #TODO tar scripts folder and store it locally
-                    pass
-                else :
-                    # TODO deploy VM on the specified testbed and send back IP address
-					# TODO store reference between resource and user
-                    conn = sqlite3.connect('%s/security-manager.db' % local_files_path)
-                    cur = conn.cursor()
-                    cur.execute('''CREATE TABLE IF NOT EXISTS resources
-                                    (username, nsr_id)''')
-                    query = "INSERT INTO resources (username, nsr_id) VALUES ('%s', '%s')" % (user_info["id"], nsr_id)
-                    logger.debug("Executing %s" % query)
+                #if properties["logging"] == "True" :
+                    '''Configure logging to send log messages to <collector_ip>'''
+                    index = ""
+                    collector_ip = ""
 
-                    ################
-                    query = "DELETE FROM resources WHERE username = '%s'" % user_info["id"]
-                    ################
-                    cur.execute(query)
-                    conn.commit()
-                    conn.close()
+            tar = tarfile.open(name=tar_filename, mode='w')
 
-        return #messages_pb2.ProvideResourceResponse(resources="content")
+            if properties["want_agent"]  :
+                '''Prepare .tar with custom scripts'''
+
+                tar.add('%s/scripts' % tmp_files_path, arcname='')
+                tar.close()
+                #TODO send link to the user to download her scripts
+            else :
+                '''Prepare VNFPackage'''
+                tar.add('%s' % tmp_files_path, arcname='')
+                # TODO deploy VM on the specified testbed and send back IP address
+                # TODO store reference between resource and user
+                conn = sqlite3.connect('%s/security-manager.db' % local_files_path)
+                cur = conn.cursor()
+                cur.execute('''CREATE TABLE IF NOT EXISTS resources
+                                (username, nsr_id)''')
+                query = "INSERT INTO resources (username, nsr_id) VALUES ('%s', '%s')" % (user_info["id"], nsr_id)
+                logger.debug("Executing %s" % query)
+
+                ################
+                query = "DELETE FROM resources WHERE username = '%s'" % user_info["id"]
+                ################
+                cur.execute(query)
+                conn.commit()
+                conn.close()
+
+        response.append({"ip": "prova"})
+        return messages_pb2.ProvideResourceResponse(resources=response)
+
+    def _update_status(self) -> dict:
+        '''Update the status of the experiments in case of value change'''
+        return dict()
 
     def release_resources(self, user_info, payload=None):
+        logger.debug(payload)
         logger.info("Requested release_resources by user %s" % user_info["name"])
         #TODO check on the properties defined in the payload
-        return None
+        return
