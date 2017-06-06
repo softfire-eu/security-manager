@@ -2,9 +2,9 @@ from sdk.softfire.manager import AbstractManager
 from sdk.softfire.grpc import messages_pb2
 from eu.softfire.utils.utils import get_logger
 from IPy import IP
-from eu.softfire.utils.utils import config_path
+from eu.softfire.utils.utils import config_path, random_string
 from eu.softfire.exceptions.exceptions import *
-import yaml
+import yaml, os
 import sqlite3, requests, tarfile
 
 logger = get_logger(config_path)
@@ -46,7 +46,7 @@ class SecurityManager(AbstractManager):
         return result
 
     def validate_resources(self, user_info=None, payload=None) -> None:
-        return
+
         resource = yaml.load(payload)
         logger.debug("Validating resource %s" % resource)
         '''
@@ -93,23 +93,26 @@ class SecurityManager(AbstractManager):
             return
 
     def provide_resources(self, user_info, payload=None):
-        #TODO REMOVE
+        #TODO REMOVE ################
         user_info = {}
         user_info["name"] = "experimenter"
         user_info["id"] = "abababab"
         nsr_id = "test"
+        ############################
 
         logger.info("Requested provide_resources by user %s" % user_info["name"])
 
         local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
-        tmp_files_path = "%s/tmp" % local_files_path
+        tmp_files_path = "%s/tmp/%s" % (local_files_path, random_string(6))
+        os.makedirs(tmp_files_path)
 
         resource = yaml.load(payload)
         properties = resource["properties"]
 
         '''Download scripts from remote Repository'''
         scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
-        tar_filename = "%s/tmp/%s.tar" % (local_files_path, properties["resource_id"])
+        tar_filename = "%s/%s.tar" % (tmp_files_path, properties["resource_id"])
+
 
         r = requests.get(scripts_url, stream=True)
         with open(tar_filename, 'wb') as fd:
@@ -122,12 +125,12 @@ class SecurityManager(AbstractManager):
 
         response = []
         if properties["resource_id"] == "firewall" :
-            #TODO modify scripts with custom configuration
+
+            '''Modify scripts with custom configuration'''
             ufw_script = "%s/scripts/ufw.sh" % tmp_files_path
             with open(ufw_script, "a") as fd:
                 '''Set default rule'''
                 add_rule_to_fw(fd, "default %s" % properties["default_rule"])
-                #fd.write("curl -X POST -H \"Content-Type: text/plain\" -d 'default %s' http://localhost:5000/ufw/rules\n" % properties["default_rule"])
 
                 '''Set rules for list of IPs'''
                 for ip_list in ip_lists :
@@ -139,7 +142,6 @@ class SecurityManager(AbstractManager):
                             else :
                                 rule = "deny from %s" % ip
                             add_rule_to_fw(fd, rule)
-                            #fd.write("curl -X POST -H \"Content-Type: text/plain\" -d '%s' http://localhost:5000/ufw/rules\n" % rule)
 
                 #if properties["logging"] == "True" :
                     '''Configure logging to send log messages to <collector_ip>'''
@@ -155,8 +157,10 @@ class SecurityManager(AbstractManager):
                 tar.close()
                 #TODO send link to the user to download her scripts
             else :
+                #TODO add testbed to descriptor
                 '''Prepare VNFPackage'''
                 tar.add('%s' % tmp_files_path, arcname='')
+                tar.close()
                 # TODO deploy VM on the specified testbed and send back IP address
                 # TODO store reference between resource and user
                 conn = sqlite3.connect('%s/security-manager.db' % local_files_path)
@@ -174,7 +178,7 @@ class SecurityManager(AbstractManager):
                 conn.close()
 
         response.append({"ip": "prova"})
-        return messages_pb2.ProvideResourceResponse(resources=response)
+        return #messages_pb2.ProvideResourceResponse(resources=response)
 
     def _update_status(self) -> dict:
         '''Update the status of the experiments in case of value change'''
@@ -182,6 +186,7 @@ class SecurityManager(AbstractManager):
 
     def release_resources(self, user_info, payload=None):
         logger.debug(payload)
+        return
         logger.info("Requested release_resources by user %s" % user_info["name"])
         #TODO check on the properties defined in the payload
         return
