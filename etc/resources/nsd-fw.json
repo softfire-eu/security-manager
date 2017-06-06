@@ -1,0 +1,12 @@
+{
+    "name":"NSD Security Firewall",
+    "vendor":"Security Reply",
+    "version":"0.0.7",
+    "description":"NSD for the stress-test. Single VM",
+    "vnfd":[
+        {
+            "id": "b00db1c1-b81b-4dac-ab21-d0de9d3e7386"
+        }
+    ]
+}
+
