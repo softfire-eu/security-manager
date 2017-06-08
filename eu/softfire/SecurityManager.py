@@ -6,6 +6,7 @@ from eu.softfire.utils.utils import *
 from eu.softfire.exceptions.exceptions import *
 import yaml, os
 import sqlite3, requests, tarfile
+from threading import Thread
 
 logger = get_logger(config_path)
 ip_lists = ["allowed_ips", "denied_ips"]
@@ -13,6 +14,24 @@ ip_lists = ["allowed_ips", "denied_ips"]
 def add_rule_to_fw(fd, rule) :
     fd.write("curl -X POST -H \"Content-Type: text/plain\" -d '%s' http://localhost:5000/ufw/rules\n" % rule)
 
+
+class UpdateStatusThread(Thread):
+    def __init__(self, manager):
+        Thread.__init__(self)
+        self.stopped = False
+        self.manager = manager
+
+    def run(self):
+        while not self.stopped:
+            time.sleep(int(self.manager.get_config_value('system', 'update-delay', '10')))
+            if not self.stopped:
+                try:
+                    self.manager.send_update()
+                except Exception as e:
+                    logger.error("got error while updating resources: %s " % e.args)
+
+    def stop(self):
+		self.stopped = True
 
 class SecurityManager(AbstractManager):
 
@@ -180,8 +199,12 @@ class SecurityManager(AbstractManager):
                 tar.close()
                 # TODO deploy VM on the specified testbed and send back IP address
                 #try :
-                nsr_details = deploy_package(path=tar_filename, project_id=project_id)
-                response.append(nsr_details)
+                nsr_details = json.loads(deploy_package(path=tar_filename, project_id=project_id))
+                nsr_id = nsr_details["id"]
+                nsd_id = nsr_details["descriptor_reference"]
+
+
+                response.append(json.dumps(nsr_details))
                 #except Exception as e :
                     #TODO Fix
                     #logger.error(e)
@@ -189,9 +212,9 @@ class SecurityManager(AbstractManager):
         # TODO store reference between resource and user
         conn = sqlite3.connect('%s/security-manager.db' % local_files_path)
         cur = conn.cursor()
-        cur.execute('''CREATE TABLE IF NOT EXISTS resources
-                        (username, nsr_id, tmp_folder)''')
-        query = "INSERT INTO resources (username, nsr_id, tmp_folder) VALUES ('%s', '%s', '%s')" % (user_info.name, nsr_id, tmp_files_path)
+        cur.execute('''CREATE TABLE IF NOT EXISTS resources (username, project_id, nsr_id, nsd_id, tmp_folder)''')
+        query = "INSERT INTO resources (username, project_id, nsr_id, nsd_id, tmp_folder) VALUES ('%s', '%s', '%s', '%s', '%s')" % \
+                (user_info.name, project_id, nsr_id, nsd_id, tmp_files_path)
         logger.debug("Executing %s" % query)
 
         cur.execute(query)
@@ -211,7 +234,15 @@ class SecurityManager(AbstractManager):
         logger.debug("Arrived release_resources\nPayload: %s" % payload)
         local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
         conn = sqlite3.connect('%s/security-manager.db' % local_files_path)
+        conn.row_factory = sqlite3.Row
         cur = conn.cursor()
+
+        query = "SELECT * FROM resources WHERE username = '%s'" % user_info.name
+        res = cur.execute(query)
+        rows = res.fetchall()
+        for r in rows:
+            delete_ns(nsr_id=r["nsr_id"], nsd_id=r["nsd_id"], project_id=r["project_id"])
+
         query = "DELETE FROM resources WHERE username = '%s'" % user_info.name
         ################
         cur.execute(query)

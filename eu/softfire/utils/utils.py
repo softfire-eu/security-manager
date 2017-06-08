@@ -1,6 +1,6 @@
 import logging
 import logging.config
-import random, string, json
+import random, string, json, time
 from org.openbaton.cli.agents.agents import OpenBatonAgentFactory
 from sdk.softfire.utils import *
 
@@ -17,7 +17,7 @@ def deploy_package(path, project_id) :
     ob_conf = get_config_parser(config_path)["open-baton"]
 
     '''Open Baton Login'''
-    agent = OpenBatonAgentFactory(nfvo_ip=ob_conf["ip"], nfvo_port=int(ob_conf["port"]), https=(ob_conf["https"] == "True"), version=int(ob_conf["version"]), username=ob_conf["username"], password=ob_conf["password"], project_id=project_id)
+    agent = ob_login(project_id)
 
     '''Upload the VNFP'''
     #TODO Problem if same version is already present
@@ -46,3 +46,22 @@ def deploy_package(path, project_id) :
     #floating_ip = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]
     floating_ip = "test"
     return nsr_details
+
+def delete_ns(nsr_id, nsd_id, project_id) :
+
+    agent = ob_login(project_id)
+    nsr_agent = agent.get_ns_records_agent(project_id=project_id)
+    nsr_agent.delete(nsr_id)
+
+    nsd_agent = agent.get_ns_descriptor_agent(project_id)
+    time.sleep(5) #Give Open Baton time to process the request
+    nsd_agent.delete(nsd_id)
+
+def ob_login(project_id):
+    ob_conf = get_config_parser(config_path)["open-baton"]
+
+    '''Open Baton Login'''
+    agent = OpenBatonAgentFactory(nfvo_ip=ob_conf["ip"], nfvo_port=int(ob_conf["port"]),
+                                  https=(ob_conf["https"] == "True"), version=int(ob_conf["version"]),
+                                  username=ob_conf["username"], password=ob_conf["password"], project_id=project_id)
+    return agent
