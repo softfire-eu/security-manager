@@ -6,8 +6,8 @@ Here is the list of the available features.
 1. The Experimenter can deploy a Security Resource 
 2. The Experimenter can statically configure her Security Resource by means of its 
 descriptor 
-  a. The Experimenter can enable logs collection from her Resource 
-  b. The Experimenter can statically configure some rules on her Resource 
+  1. The Experimenter can enable logs collection from her Resource 
+  1. The Experimenter can statically configure some rules on her Resource 
 3. The Experimenter can dynamically configure her Resource once it has been deployed 
 4. The Experimenter can see her Resources logs in a web dashboard 
 5. The Experimenter can perform searches among her Resources logs in a web dashboard 
@@ -23,6 +23,7 @@ collector, which makes them available in a simple web page reserved to her. The 
 could easily access it through its web browser and check the behaviour of her all security agents, 
 and to see some statistics. 
 The Experimenter can get the Security Resource in two different formats: 
+
 * As an agent directly installed in the VM that she wants to monitor. The system will 
 provide her a script that the Experimenter has just to run inside the VM. It will be already 
 configured as required in the TOSCA description of the resource. The output of the script 
