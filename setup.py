@@ -32,7 +32,8 @@ setup(
         'openbaton-cli',
         'pyyaml',
         'IPy',
-        'requests'
+        'requests',
+        'bottle'
     ],
     long_description=read('README.rst'),
     classifiers=[

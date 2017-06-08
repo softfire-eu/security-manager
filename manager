@@ -7,8 +7,11 @@ where the runner script is in /usr/bin (or wherever)
 """
 from sdk.softfire.main import start_manager
 from eu.softfire.SecurityManager import SecurityManager
+from eu.softfire.Api import Api
 
+import asyncio
 import os
+from concurrent.futures import ProcessPoolExecutor
 from eu.softfire.utils.utils import config_path
 
 def start():
@@ -16,7 +19,9 @@ def start():
     #print(os.environ["http_proxy"])
     #print(os.environ["no_proxy"])
     #sec_man = SecurityManager(get_logger("eu.softfire.security-manager"))
+    executor = ProcessPoolExecutor(1)
     start_manager(SecurityManager(config_path))
+    asyncio.ensure_future(loop.run_in_executor(executor, Api.start))
 
 
 if __name__ == '__main__':
