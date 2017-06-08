@@ -20,6 +20,7 @@ def deploy_package(path, project_id) :
     agent = OpenBatonAgentFactory(nfvo_ip=ob_conf["ip"], nfvo_port=int(ob_conf["port"]), https=(ob_conf["https"] == "True"), version=int(ob_conf["version"]), username=ob_conf["username"], password=ob_conf["password"], project_id=project_id)
 
     '''Upload the VNFP'''
+    #TODO Problem if same version is already present
     vnfp_agent = agent.get_vnf_package_agent(project_id=project_id)
     vnfp = vnfp_agent.create(path)
 
@@ -32,6 +33,7 @@ def deploy_package(path, project_id) :
     with open(nsd_file_path, "r") as fd:
         nsd = json.load(fd)
     nsd["vnfd"] = [{"id" : vnfp["id"]}]
+    print(nsd)
     nsd = nsd_agent.create(json.dumps(nsd))
 
     '''Deploy of the NSR'''
@@ -41,5 +43,6 @@ def deploy_package(path, project_id) :
     nsr_details = nsr_agent.find(nsr["id"])
 
     '''Assuming 1 VNFR, 1 VDU, 1 VNC_Instance, 1 Floating IP'''
-    floating_ip = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]
-    return floating_ip
+    #floating_ip = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]
+    floating_ip = "test"
+    return nsr_details
