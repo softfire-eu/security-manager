@@ -5,12 +5,9 @@ activities on the SoftFIRE platform.
 Here is the list of the available features.
 
 1. The Experimenter can deploy a Security Resource 
-2. The Experimenter can statically configure her Security Resource by means of its 
-descriptor 
-
-  * The Experimenter can enable logs collection from her Resource 
-  * The Experimenter can statically configure some rules on her Resource 
-
+2. The Experimenter can statically configure her Security Resource by means of its descriptor 
+   1. The Experimenter can enable logs collection from her Resource 
+   1. The Experimenter can statically configure some rules on her Resource 
 3. The Experimenter can dynamically configure her Resource once it has been deployed 
 4. The Experimenter can see her Resources logs in a web dashboard 
 5. The Experimenter can perform searches among her Resources logs in a web dashboard 
