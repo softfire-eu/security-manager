@@ -97,7 +97,7 @@ This node type has different properties:
 
 ## Technical details
 This sequence diagram specifies the operations performed by the Security Manager based on the inputs received by the Experimenter.
-[sequence]
+![Security Manager sequence diagram][sequence]
 
 
 
