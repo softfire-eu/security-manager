@@ -2,7 +2,7 @@ from sdk.softfire.manager import AbstractManager
 from sdk.softfire.grpc import messages_pb2
 from eu.softfire.utils.utils import get_logger
 from IPy import IP
-from eu.softfire.utils.utils import config_path, random_string
+from eu.softfire.utils.utils import *
 from eu.softfire.exceptions.exceptions import *
 import yaml, os
 import sqlite3, requests, tarfile
@@ -98,9 +98,12 @@ class SecurityManager(AbstractManager):
         user_info["name"] = "experimenter"
         user_info["id"] = "abababab"
         nsr_id = "test"
+        project_id = "761d8b56-b21a-4db2-b4d2-16b05a01bc7e"
         ############################
 
         logger.info("Requested provide_resources by user %s" % user_info["name"])
+
+        nsr_id = ""
 
         local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
         tmp_files_path = "%s/tmp/%s" % (local_files_path, random_string(6))
@@ -162,23 +165,32 @@ class SecurityManager(AbstractManager):
                 tar.add('%s' % tmp_files_path, arcname='')
                 tar.close()
                 # TODO deploy VM on the specified testbed and send back IP address
-                # TODO store reference between resource and user
-                conn = sqlite3.connect('%s/security-manager.db' % local_files_path)
-                cur = conn.cursor()
-                cur.execute('''CREATE TABLE IF NOT EXISTS resources
-                                (username, nsr_id)''')
-                query = "INSERT INTO resources (username, nsr_id) VALUES ('%s', '%s')" % (user_info["id"], nsr_id)
-                logger.debug("Executing %s" % query)
+                try :
+                    floating_ip = deploy_package(path=tar_filename, project_id=project_id)
+                except Exception as e :
+                    #TODO Fix
+                    logger.error(e)
 
-                ################
-                query = "DELETE FROM resources WHERE username = '%s'" % user_info["id"]
-                ################
-                cur.execute(query)
-                conn.commit()
-                conn.close()
+        # TODO store reference between resource and user
+        conn = sqlite3.connect('%s/security-manager.db' % local_files_path)
+        cur = conn.cursor()
+        cur.execute('''CREATE TABLE IF NOT EXISTS resources
+                        (username, nsr_id, tmp_folder)''')
+        query = "INSERT INTO resources (username, nsr_id, tmp_folder) VALUES ('%s', '%s', '%s')" % (user_info["id"], nsr_id, tmp_files_path)
+        logger.debug("Executing %s" % query)
 
-        response.append({"ip": "prova"})
-        return #messages_pb2.ProvideResourceResponse(resources=response)
+        ################
+        query = "DELETE FROM resources WHERE username = '%s'" % user_info["id"]
+        ################
+        cur.execute(query)
+        conn.commit()
+        conn.close()
+
+        response.append("{\"ip\": \"prova\"}")
+        '''
+        Return an array of JSON strings with information about the resources
+        '''
+        return response
 
     def _update_status(self) -> dict:
         '''Update the status of the experiments in case of value change'''
