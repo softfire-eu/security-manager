@@ -88,25 +88,29 @@ class SecurityManager(AbstractManager):
                 raise ResourceValidationError(message=message)
 
             ####### for test ######
-            self.provide_resources(user_info, payload)
+            #self.provide_resources(user_info, payload)
             ######################
             return
 
     def provide_resources(self, user_info, payload=None):
+        logger.debug("user_info: type: %s, %s" % (type(user_info), user_info))
+        logger.debug("payload: %s" % payload)
         #TODO REMOVE ################
-        user_info = {}
-        user_info["name"] = "experimenter"
-        user_info["id"] = "abababab"
-        nsr_id = "test"
+        #user_info = {}
+        #user_info["name"] = "experimenter"
+        #user_info["id"] = "abababab"
+        #nsr_id = "test"
         project_id = "761d8b56-b21a-4db2-b4d2-16b05a01bc7e"
         ############################
 
-        logger.info("Requested provide_resources by user %s" % user_info["name"])
+        logger.info("Requested provide_resources by user %s" % user_info.name)
 
         nsr_id = ""
 
         local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
-        tmp_files_path = "%s/tmp/%s" % (local_files_path, random_string(6))
+        random_id = random_string(6)
+        tmp_files_path = "%s/tmp/%s" % (local_files_path, random_id)
+        logger.debug("Store tmp files in folder %s" %tmp_files_path)
         os.makedirs(tmp_files_path)
 
         resource = yaml.load(payload)
@@ -160,33 +164,40 @@ class SecurityManager(AbstractManager):
                 tar.close()
                 #TODO send link to the user to download her scripts
             else :
-                #TODO add testbed to descriptor
+                #TODO add testbed to descriptor & change name/version to avoid conflicts
+                vnfd = {}
+                with open("%s/vnfd.json" % tmp_files_path, "r") as fd :
+                    vnfd = json.loads(fd.read())
+                logger.debug(vnfd)
+                vnfd["name"] +=  ("-%s" % random_id)
+                vnfd["type"] = vnfd["name"]
+                logger.debug(vnfd["name"])
+                logger.debug("Prepared VNFD: %s" % vnfd)
+                with open("%s/vnfd.json" % tmp_files_path, "w") as fd:
+                    fd.write(json.dumps(vnfd))
                 '''Prepare VNFPackage'''
                 tar.add('%s' % tmp_files_path, arcname='')
                 tar.close()
                 # TODO deploy VM on the specified testbed and send back IP address
-                try :
-                    floating_ip = deploy_package(path=tar_filename, project_id=project_id)
-                except Exception as e :
+                #try :
+                nsr_details = deploy_package(path=tar_filename, project_id=project_id)
+                response.append(nsr_details)
+                #except Exception as e :
                     #TODO Fix
-                    logger.error(e)
+                    #logger.error(e)
 
         # TODO store reference between resource and user
         conn = sqlite3.connect('%s/security-manager.db' % local_files_path)
         cur = conn.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS resources
                         (username, nsr_id, tmp_folder)''')
-        query = "INSERT INTO resources (username, nsr_id, tmp_folder) VALUES ('%s', '%s', '%s')" % (user_info["id"], nsr_id, tmp_files_path)
+        query = "INSERT INTO resources (username, nsr_id, tmp_folder) VALUES ('%s', '%s', '%s')" % (user_info.name, nsr_id, tmp_files_path)
         logger.debug("Executing %s" % query)
 
-        ################
-        query = "DELETE FROM resources WHERE username = '%s'" % user_info["id"]
-        ################
         cur.execute(query)
         conn.commit()
         conn.close()
 
-        response.append("{\"ip\": \"prova\"}")
         '''
         Return an array of JSON strings with information about the resources
         '''
@@ -197,8 +208,15 @@ class SecurityManager(AbstractManager):
         return dict()
 
     def release_resources(self, user_info, payload=None):
-        logger.debug(payload)
-        return
-        logger.info("Requested release_resources by user %s" % user_info["name"])
+        logger.debug("Arrived release_resources\nPayload: %s" % payload)
+        local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
+        conn = sqlite3.connect('%s/security-manager.db' % local_files_path)
+        cur = conn.cursor()
+        query = "DELETE FROM resources WHERE username = '%s'" % user_info.name
+        ################
+        cur.execute(query)
+        conn.commit()
+        conn.close()
+        logger.info("Requested release_resources by user %s" % user_info.name)
         #TODO check on the properties defined in the payload
         return
