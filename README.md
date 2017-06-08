@@ -83,6 +83,18 @@ This node type has different properties:
 * **denied_ips**: List of IPs (or CIDR masks) denied by the firewall [deny from *IP*]
 * **default_rule**: Default rule applied by the firewall (allow/deny)
 
+
+##### Testbed Names
+
+| Alias    | Testbed                          |
+|----------|----------------------------------|
+| fokus    | FOKUS testbed, Berlin            |
+| ericsson | ERICSSON testbed, Rome           |
+| surrey   | SURREY testbed, Surrey           |
+| ads      | ADS testbed, Rome                |
+| dt       | Deutsche Telekom testbed, Berlin |
+| any      | No difference                    |
+
 ## Technical details
 This sequence diagram specifies the operations performed by the Security Manager based on the inputs received by the Experimenter.
 [sequence]
