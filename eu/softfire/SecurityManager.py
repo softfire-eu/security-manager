@@ -14,7 +14,7 @@ ip_lists = ["allowed_ips", "denied_ips"]
 def add_rule_to_fw(fd, rule) :
     fd.write("curl -X POST -H \"Content-Type: text/plain\" -d '%s' http://localhost:5000/ufw/rules\n" % rule)
 
-
+'''
 class UpdateStatusThread(Thread):
     def __init__(self, manager):
         Thread.__init__(self)
@@ -32,8 +32,14 @@ class UpdateStatusThread(Thread):
 
     def stop(self):
 		self.stopped = True
+'''
 
 class SecurityManager(AbstractManager):
+
+    def __init__(self, config_path):
+        super(SecurityManager, self).__init__(config_path)
+        local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
+        self.resources_db = '%s/security-manager.db' % local_files_path
 
 
     def refresh_resources(self, user_info):
@@ -114,13 +120,14 @@ class SecurityManager(AbstractManager):
     def provide_resources(self, user_info, payload=None):
         logger.debug("user_info: type: %s, %s" % (type(user_info), user_info))
         logger.debug("payload: %s" % payload)
-        #TODO REMOVE ################
-        #user_info = {}
-        #user_info["name"] = "experimenter"
-        #user_info["id"] = "abababab"
-        #nsr_id = "test"
-        project_id = "761d8b56-b21a-4db2-b4d2-16b05a01bc7e"
-        ############################
+
+		#TODO REMOVE
+        try :
+            #TODO check param name
+            project_id = user_info.project_id
+        except Exception :
+            project_id = "761d8b56-b21a-4db2-b4d2-16b05a01bc7e"
+			# Hardcoded to test interacion with Open baton. Should be sent by the experiment-manager
 
         logger.info("Requested provide_resources by user %s" % user_info.name)
 
@@ -210,7 +217,7 @@ class SecurityManager(AbstractManager):
                     #logger.error(e)
 
         # TODO store reference between resource and user
-        conn = sqlite3.connect('%s/security-manager.db' % local_files_path)
+        conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS resources (username, project_id, nsr_id, nsd_id, tmp_folder)''')
         query = "INSERT INTO resources (username, project_id, nsr_id, nsd_id, tmp_folder) VALUES ('%s', '%s', '%s', '%s', '%s')" % \
@@ -226,14 +233,36 @@ class SecurityManager(AbstractManager):
         '''
         return response
 
+    '''
     def _update_status(self) -> dict:
-        '''Update the status of the experiments in case of value change'''
-        return dict()
+        logger.debug("Checking status update")
+        result = {}
+        conn = sqlite3.connect(self.resources_db)
+        cur = conn.cursor()
 
+        query = "SELECT * FROM resources WHERE username = '%s'" % user_info.name
+        res = cur.execute(query)
+        rows = res.fetchall()
+        for username, nsrs in get_nsrs_to_check().items():
+            logger.debug("Checking resources of user %s" % username)
+            if len(nsrs):
+                ob_client = OBClient(username)
+                result[username] = []
+                for nsr in nsrs:
+                    nsr_new = ob_client.get_nsr(nsr.get('id'))
+                    if isinstance(nsr_new, dict):
+                        nsr_new = json.dumps(nsr_new)
+                    status = json.loads(nsr_new).get('status')
+                    result[username].append(nsr_new)
+
+                    # result[username].append(json.dumps(nsr))
+
+    return result
+	'''
     def release_resources(self, user_info, payload=None):
         logger.debug("Arrived release_resources\nPayload: %s" % payload)
-        local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
-        conn = sqlite3.connect('%s/security-manager.db' % local_files_path)
+
+        conn = sqlite3.connect(self.resources_db)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
