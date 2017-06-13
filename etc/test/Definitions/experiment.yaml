@@ -82,10 +82,10 @@ topology_template:
       type: SecurityResource
       properties:
         resource_id: firewall
-        want_agent: false
+        want_agent: true
         testbed: ericsson
-        default_rule: allow
-        denied_ips: [127.0.0.1]
+        default_rule: allow 
+        denied_ips: [ciao, 127.0.0.1]
 #    fr:
 #      type: SecurityResource
 #      properties:

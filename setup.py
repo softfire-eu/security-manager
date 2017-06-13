@@ -15,7 +15,7 @@ def read(fname):
 
 setup(
     name="security-manager",
-    version="0.0.1",
+    version="0.0.2",
     author="SoftFIRE",
     author_email="softfire@softfire.eu",
     description="The SoftFIRE Security Manager",
@@ -25,17 +25,13 @@ setup(
     packages=find_packages(),
     scripts=["manager"],
     install_requires=[
-        'asyncio',
-        'grpcio',
-        'softfire-sdk',
-        'tosca-parser', #probably not needed
-        'openbaton-cli',
-        'pyyaml',
         'IPy',
+        'openbaton-cli',
+        'PyYAML',
         'requests',
-        'bottle'
+        'softfire-sdk'
     ],
-    long_description=read('README.rst'),
+    long_description=read('README.md'),
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
