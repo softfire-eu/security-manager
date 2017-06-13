@@ -1,4 +1,3 @@
-import logging
 import logging.config
 import random, string, json, time
 from org.openbaton.cli.agents.agents import OpenBatonAgentFactory
@@ -20,7 +19,6 @@ def deploy_package(path, project_id) :
     agent = ob_login(project_id)
 
     '''Upload the VNFP'''
-    #TODO Problem if same version is already present
     vnfp_agent = agent.get_vnf_package_agent(project_id=project_id)
     vnfp = vnfp_agent.create(path)
 

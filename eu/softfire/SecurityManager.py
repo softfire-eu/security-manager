@@ -1,11 +1,10 @@
 from sdk.softfire.manager import AbstractManager
-from sdk.softfire.grpc import messages_pb2
-from eu.softfire.utils.utils import get_logger
+
 from IPy import IP
 from eu.softfire.utils.utils import *
 from eu.softfire.exceptions.exceptions import *
 import yaml, os
-import sqlite3, requests, tarfile
+import sqlite3, requests, tarfile, shutil
 from threading import Thread
 
 logger = get_logger(config_path)
@@ -14,7 +13,7 @@ ip_lists = ["allowed_ips", "denied_ips"]
 def add_rule_to_fw(fd, rule) :
     fd.write("curl -X POST -H \"Content-Type: text/plain\" -d '%s' http://localhost:5000/ufw/rules\n" % rule)
 
-'''
+
 class UpdateStatusThread(Thread):
     def __init__(self, manager):
         Thread.__init__(self)
@@ -25,22 +24,22 @@ class UpdateStatusThread(Thread):
         while not self.stopped:
             time.sleep(int(self.manager.get_config_value('system', 'update-delay', '10')))
             if not self.stopped:
-                try:
-                    self.manager.send_update()
-                except Exception as e:
-                    logger.error("got error while updating resources: %s " % e.args)
+                #try:
+                self.manager.send_update()
+                #except Exception as e:
+                #    logger.error("got error while updating resources: %s " % e.args)
 
     def stop(self):
-		self.stopped = True
-'''
+        self.stopped = True
+
+
 
 class SecurityManager(AbstractManager):
 
     def __init__(self, config_path):
         super(SecurityManager, self).__init__(config_path)
-        local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
-        self.resources_db = '%s/security-manager.db' % local_files_path
-
+        self.local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
+        self.resources_db = '%s/security-manager.db' % self.local_files_path
 
     def refresh_resources(self, user_info):
         return None
@@ -89,7 +88,6 @@ class SecurityManager(AbstractManager):
             else :
                 message = "default_rule does not contain a valid value"
                 logger.info(message)
-                # TODO send error to experiment-manager
                 raise ResourceValidationError(message=message)
 
 
@@ -132,10 +130,11 @@ class SecurityManager(AbstractManager):
         logger.info("Requested provide_resources by user %s" % user_info.name)
 
         nsr_id = ""
+        nsd_id = ""
+        log_dashboard_url = ""
 
-        local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
         random_id = random_string(6)
-        tmp_files_path = "%s/tmp/%s" % (local_files_path, random_id)
+        tmp_files_path = "%s/tmp/%s" % (self.local_files_path, random_id)
         logger.debug("Store tmp files in folder %s" %tmp_files_path)
         os.makedirs(tmp_files_path)
 
@@ -180,6 +179,7 @@ class SecurityManager(AbstractManager):
                     '''Configure logging to send log messages to <collector_ip>'''
                     index = ""
                     collector_ip = ""
+                    log_dashboard_url = ""
 
             tar = tarfile.open(name=tar_filename, mode='w')
 
@@ -188,6 +188,9 @@ class SecurityManager(AbstractManager):
 
                 tar.add('%s/scripts' % tmp_files_path, arcname='')
                 tar.close()
+
+                link = "http://%s:%s/%s/%s" % (get_config("system", "ip", config_file_path=config_path), get_config("api", "port", config_file_path=config_path), properties["resource_id"], random_id)
+                response.append(json.dumps({"download_link" : link}))
                 #TODO send link to the user to download her scripts
             else :
                 #TODO add testbed to descriptor & change name/version to avoid conflicts
@@ -216,12 +219,12 @@ class SecurityManager(AbstractManager):
                     #TODO Fix
                     #logger.error(e)
 
-        # TODO store reference between resource and user
+        # TODO store reference between resource and user. ADD status, api-ip, dashboard_url
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
-        cur.execute('''CREATE TABLE IF NOT EXISTS resources (username, project_id, nsr_id, nsd_id, tmp_folder)''')
-        query = "INSERT INTO resources (username, project_id, nsr_id, nsd_id, tmp_folder) VALUES ('%s', '%s', '%s', '%s', '%s')" % \
-                (user_info.name, project_id, nsr_id, nsd_id, tmp_files_path)
+        cur.execute('''CREATE TABLE IF NOT EXISTS resources (username, project_id, nsr_id, nsd_id, random_id, log_dashboard_url)''')
+        query = "INSERT INTO resources (username, project_id, nsr_id, nsd_id, random_id, log_dashboard_url) VALUES ('%s', '%s', '%s', '%s', '%s', '%s')" % \
+                (user_info.name, project_id, nsr_id, nsd_id, random_id, log_dashboard_url)
         logger.debug("Executing %s" % query)
 
         cur.execute(query)
@@ -233,33 +236,72 @@ class SecurityManager(AbstractManager):
         '''
         return response
 
-    '''
     def _update_status(self) -> dict:
         logger.debug("Checking status update")
         result = {}
         conn = sqlite3.connect(self.resources_db)
+        conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
-        query = "SELECT * FROM resources WHERE username = '%s'" % user_info.name
+        query = "SELECT * FROM resources"
         res = cur.execute(query)
         rows = res.fetchall()
-        for username, nsrs in get_nsrs_to_check().items():
-            logger.debug("Checking resources of user %s" % username)
-            if len(nsrs):
-                ob_client = OBClient(username)
+        for r in rows:
+            #TODO nsr_id e project_id could be empty with want_agent
+            nsr_id = r["nsr_id"]
+            project_id = r["project_id"]
+            username = r["username"]
+            #TODO FIX THESE
+            #download_link = r["download_link"]
+            #dashboard_url = r["dashboard_url"]
+            #api_url = r["api_url"]
+
+            if nsr_id == "" :
+                return ""
+                '''This resource does not correspond to a deployed NSR'''
+                logger.debug("Uninstantiated resource")
+                s = {"message" : "You have just downloaded the scripts to install the resource"}
+                #s["download_link"] = download_link
+
+            else :
+                '''Open Baton resource'''
+                logger.debug("Checking resource nsr_id: %s" % nsr_id)
+
+                try :
+                    agent = ob_login(project_id)
+                    nsr_agent = agent.get_ns_records_agent(project_id=project_id)
+                    ob_resp = nsr_agent.find(nsr_id)
+                    time.sleep(5)
+                    ob_resp = json.loads(ob_resp)
+                    logger.debug(ob_resp)
+                except Exception as e :
+                    logger.error("Error contacting Open Baton to validate resource nsr_id: %s\n%s" % (nsr_id, e))
+
+                s = {}
+                s["status"] = ob_resp["status"]
+
+                print(s)
+                #if ACTIVE
+                if s["status"] == "ACTIVE" :
+                    s["ip"] = ob_resp["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]["ip"]
+                    s["api_url"] = "http://%s:5000" % s["ip"]
+                    try :
+                        api_resp = requests.get(s["api_url"])
+                        logger.debug(api_resp)
+                    except Exception:
+                        s["status"] == "VM is running but API are unavailable"
+
+            '''
+            if dashboard_url != "" : 
+                s["dashboard_url"] = dashboard_url
+            '''
+            if username not in result.keys():
                 result[username] = []
-                for nsr in nsrs:
-                    nsr_new = ob_client.get_nsr(nsr.get('id'))
-                    if isinstance(nsr_new, dict):
-                        nsr_new = json.dumps(nsr_new)
-                    status = json.loads(nsr_new).get('status')
-                    result[username].append(nsr_new)
+            result[username].append(json.dumps(s))
+        return result
 
-                    # result[username].append(json.dumps(nsr))
-
-    return result
-	'''
     def release_resources(self, user_info, payload=None):
+        logger.info("Requested release_resources by user %s" % user_info.name)
         logger.debug("Arrived release_resources\nPayload: %s" % payload)
 
         conn = sqlite3.connect(self.resources_db)
@@ -271,12 +313,13 @@ class SecurityManager(AbstractManager):
         rows = res.fetchall()
         for r in rows:
             delete_ns(nsr_id=r["nsr_id"], nsd_id=r["nsd_id"], project_id=r["project_id"])
+            shutil.rmtree("%s/tmp/%s" % (self.local_files_path, r["random_id"]))
 
         query = "DELETE FROM resources WHERE username = '%s'" % user_info.name
         ################
         cur.execute(query)
         conn.commit()
         conn.close()
-        logger.info("Requested release_resources by user %s" % user_info.name)
-        #TODO check on the properties defined in the payload
+
+        #TODO delete folders
         return
