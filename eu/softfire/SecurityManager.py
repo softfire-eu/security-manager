@@ -130,10 +130,12 @@ class SecurityManager(AbstractManager):
         logger.info("Requested provide_resources by user %s" % user_info.name)
 
         nsr_id = ""
+
         nsd_id = ""
         log_dashboard_url = ""
 
         random_id = random_string(15)
+
         tmp_files_path = "%s/tmp/%s" % (self.local_files_path, random_id)
         logger.debug("Store tmp files in folder %s" %tmp_files_path)
         os.makedirs(tmp_files_path)
@@ -258,10 +260,7 @@ class SecurityManager(AbstractManager):
 
             if nsr_id == "" :
                 return ""
-                '''This resource does not correspond to a deployed NSR'''
-                logger.debug("Uninstantiated resource")
-                s = {"message" : "You have just downloaded the scripts to install the resource"}
-                #s["download_link"] = download_link
+
 
             else :
                 '''Open Baton resource'''
@@ -292,13 +291,14 @@ class SecurityManager(AbstractManager):
                         s["status"] == "VM is running but API are unavailable"
 
             '''
-            if dashboard_url != "" : 
+            if dashboard_url != "" :
                 s["dashboard_url"] = dashboard_url
             '''
             if username not in result.keys():
                 result[username] = []
             result[username].append(json.dumps(s))
         return result
+
 
     def release_resources(self, user_info, payload=None):
         logger.info("Requested release_resources by user %s" % user_info.name)

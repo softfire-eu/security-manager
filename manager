@@ -18,7 +18,6 @@ from eu.softfire.utils.utils import config_path
 def start():
     os.environ["http_proxy"] = ""
 
-
     sec_manager = SecurityManager(config_path)
     thread = UpdateStatusThread(sec_manager)
     thread.start()
