@@ -133,7 +133,7 @@ class SecurityManager(AbstractManager):
         nsd_id = ""
         log_dashboard_url = ""
 
-        random_id = random_string(6)
+        random_id = random_string(15)
         tmp_files_path = "%s/tmp/%s" % (self.local_files_path, random_id)
         logger.debug("Store tmp files in folder %s" %tmp_files_path)
         os.makedirs(tmp_files_path)

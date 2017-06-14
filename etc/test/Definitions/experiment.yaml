@@ -85,7 +85,7 @@ topology_template:
         want_agent: true
         testbed: ericsson
         default_rule: allow 
-        denied_ips: [ciao, 127.0.0.1]
+        denied_ips: [127.0.0.1]
 #    fr:
 #      type: SecurityResource
 #      properties:

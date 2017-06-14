@@ -11,11 +11,11 @@ from sdk.softfire.utils import get_config
 #@authorize(role='experimenter')
 def download_scripts(id, resource):
     file_path = get_config(section="local-files", key="path", config_file_path=config_path)
-    tmp_file_path = "%s/tmp/" % file_path
+    tmp_file_path = "%s/tmp" % file_path
     print(tmp_file_path)
     filename = "%s/%s.tar" % (id, resource)
     print(filename)
-    return static_file(filename, tmp_file_path)
+    return static_file(filename, tmp_file_path, download="%s.tar" % resource)
 
 
 class StartThread(Thread):

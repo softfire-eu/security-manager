@@ -1,5 +1,5 @@
 import logging.config
-import random, string, json, time
+import random, string, json, time, requests
 from org.openbaton.cli.agents.agents import OpenBatonAgentFactory
 from sdk.softfire.utils import *
 
@@ -10,7 +10,7 @@ def get_logger(config_path):
     return logging.getLogger("security-manager")
 
 def random_string(size):
-    return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(size))
+    return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(size))
 
 def deploy_package(path, project_id) :
     ob_conf = get_config_parser(config_path)["open-baton"]
@@ -63,3 +63,12 @@ def ob_login(project_id):
                                   https=(ob_conf["https"] == "True"), version=int(ob_conf["version"]),
                                   username=ob_conf["username"], password=ob_conf["password"], project_id=project_id)
     return agent
+
+def get_kibana_element(el_type, el_id):
+    resp = requests.get("http://%s:%s/.kibana/%s/%s" % (elastic_ip, elastic_port, el_type, el_id))
+    return resp.json()
+
+def post_kibana_element(el_type, el_id, data):
+    resp = requests.post("http://%s:%s/.kibana/%s/%s" % (elastic_ip, elastic_port, el_type, el_id), data=data)
+    return resp.json()
+
