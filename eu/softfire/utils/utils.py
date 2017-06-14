@@ -1,9 +1,28 @@
 import logging.config
 import random, string, json, time, requests
+from threading import Thread
 from org.openbaton.cli.agents.agents import OpenBatonAgentFactory
 from sdk.softfire.utils import *
 
 config_path = '/etc/softfire/security-manager/security-manager.ini'
+
+class UpdateStatusThread(Thread):
+    def __init__(self, manager):
+        Thread.__init__(self)
+        self.stopped = False
+        self.manager = manager
+
+    def run(self):
+        while not self.stopped:
+            time.sleep(int(self.manager.get_config_value('system', 'update-delay', '10')))
+            if not self.stopped:
+                #try:
+                self.manager.send_update()
+                #except Exception as e:
+                #    logger.error("got error while updating resources: %s " % e.args)
+
+    def stop(self):
+        self.stopped = True
 
 def get_logger(config_path):
     logging.config.fileConfig(config_path)
@@ -63,6 +82,9 @@ def ob_login(project_id):
                                   https=(ob_conf["https"] == "True"), version=int(ob_conf["version"]),
                                   username=ob_conf["username"], password=ob_conf["password"], project_id=project_id)
     return agent
+
+def add_rule_to_fw(fd, rule) :
+    fd.write("curl -X POST -H \"Content-Type: text/plain\" -d '%s' http://localhost:5000/ufw/rules\n" % rule)
 
 def get_kibana_element(el_type, el_id):
     resp = requests.get("http://%s:%s/.kibana/%s/%s" % (elastic_ip, elastic_port, el_type, el_id))

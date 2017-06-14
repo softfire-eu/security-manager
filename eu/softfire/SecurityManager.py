@@ -5,33 +5,10 @@ from eu.softfire.utils.utils import *
 from eu.softfire.exceptions.exceptions import *
 import yaml, os
 import sqlite3, requests, tarfile, shutil
-from threading import Thread
+
 
 logger = get_logger(config_path)
 ip_lists = ["allowed_ips", "denied_ips"]
-
-def add_rule_to_fw(fd, rule) :
-    fd.write("curl -X POST -H \"Content-Type: text/plain\" -d '%s' http://localhost:5000/ufw/rules\n" % rule)
-
-
-class UpdateStatusThread(Thread):
-    def __init__(self, manager):
-        Thread.__init__(self)
-        self.stopped = False
-        self.manager = manager
-
-    def run(self):
-        while not self.stopped:
-            time.sleep(int(self.manager.get_config_value('system', 'update-delay', '10')))
-            if not self.stopped:
-                #try:
-                self.manager.send_update()
-                #except Exception as e:
-                #    logger.error("got error while updating resources: %s " % e.args)
-
-    def stop(self):
-        self.stopped = True
-
 
 
 class SecurityManager(AbstractManager):
@@ -41,19 +18,6 @@ class SecurityManager(AbstractManager):
         self.local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
         self.resources_db = '%s/security-manager.db' % self.local_files_path
 
-    def refresh_resources(self, user_info):
-        return None
-
-    def create_user(self, username, password):
-        print("Arrivata create_user")
-        user_info = messages_pb2.UserInfo(
-            name=username,
-            password=password,
-            ob_project_id='id',
-            testbed_tenants={}
-        )
-
-        return user_info
 
     def list_resources(self, user_info=None, payload=None):
         logger.debug("List resources")
@@ -179,8 +143,12 @@ class SecurityManager(AbstractManager):
 
                 #if properties["logging"] == "True" :
                     '''Configure logging to send log messages to <collector_ip>'''
-                    index = ""
-                    collector_ip = ""
+                    index = random_id
+                    collector_ip = get_config("log-collector", "ip", config_path)
+                    logstash_port = get_config("log-collector", "logstash-port", config_path)
+                    elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
+                    dashboard_template = get_config("log-collector", "dashboard-template", config_path)
+                    kibana_port = get_config("log-collector", "kibana-port", config_path)
                     log_dashboard_url = ""
 
             tar = tarfile.open(name=tar_filename, mode='w')
@@ -290,10 +258,6 @@ class SecurityManager(AbstractManager):
                     except Exception:
                         s["status"] == "VM is running but API are unavailable"
 
-            '''
-            if dashboard_url != "" :
-                s["dashboard_url"] = dashboard_url
-            '''
             if username not in result.keys():
                 result[username] = []
             result[username].append(json.dumps(s))
