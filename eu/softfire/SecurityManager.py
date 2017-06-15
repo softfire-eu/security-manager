@@ -254,7 +254,7 @@ class SecurityManager(AbstractManager):
             else :
                 '''Open Baton resource'''
                 logger.debug("Checking resource nsr_id: %s" % nsr_id)
-
+                s = {}
                 try :
                     agent = ob_login(project_id)
                     nsr_agent = agent.get_ns_records_agent(project_id=project_id)
@@ -262,11 +262,12 @@ class SecurityManager(AbstractManager):
                     time.sleep(5)
                     ob_resp = json.loads(ob_resp)
                     logger.debug(ob_resp)
+
+                    s["status"] = ob_resp["status"]
                 except Exception as e :
                     logger.error("Error contacting Open Baton to validate resource nsr_id: %s\n%s" % (nsr_id, e))
+                    s["status"] = "ERROR checking status"
 
-                s = {}
-                s["status"] = ob_resp["status"]
 
                 print(s)
                 #if ACTIVE
