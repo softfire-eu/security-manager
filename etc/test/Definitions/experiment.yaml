@@ -86,6 +86,7 @@ topology_template:
         testbed: ericsson
         default_rule: allow 
         denied_ips: [127.0.0.1]
+        logging: true
 #    fr:
 #      type: SecurityResource
 #      properties:

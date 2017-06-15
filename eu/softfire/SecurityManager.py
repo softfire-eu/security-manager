@@ -18,6 +18,11 @@ class SecurityManager(AbstractManager):
         self.local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
         self.resources_db = '%s/security-manager.db' % self.local_files_path
 
+    def refresh_resources(self, user_info):
+        return None
+
+    def create_user(self, user_info):
+        return user_info
 
     def list_resources(self, user_info=None, payload=None):
         logger.debug("List resources")
@@ -141,15 +146,31 @@ class SecurityManager(AbstractManager):
                                 rule = "deny from %s" % ip
                             add_rule_to_fw(fd, rule)
 
-                #if properties["logging"] == "True" :
-                    '''Configure logging to send log messages to <collector_ip>'''
-                    index = random_id
-                    collector_ip = get_config("log-collector", "ip", config_path)
-                    logstash_port = get_config("log-collector", "logstash-port", config_path)
-                    elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
-                    dashboard_template = get_config("log-collector", "dashboard-template", config_path)
-                    kibana_port = get_config("log-collector", "kibana-port", config_path)
-                    log_dashboard_url = ""
+
+            if properties["logging"] :
+                logger.debug("Configuring logging")
+                '''Configure logging to send log messages to <collector_ip>'''
+                elastic_index = random_id
+                collector_ip = get_config("log-collector", "ip", config_path)
+                logstash_port = get_config("log-collector", "logstash-port", config_path)
+                rsyslog_conf = "%s/scripts/10-softfire.conf" % tmp_files_path
+                conf = ""
+                with open(rsyslog_conf) as fd_old :
+                    for line in fd_old :
+                        conf += line.replace("test", elastic_index)
+
+                print(collector_ip)
+                conf += '''\nif ($msg contains "[UFW ") then { 
+                action(type="omfwd" target="%s" port="%s" template="softfireFormat")
+                }\n''' % (collector_ip, logstash_port)
+
+                with open(rsyslog_conf, "w") as fd_new:
+                    fd_new.write(conf)
+                elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
+                dashboard_template = get_config("log-collector", "dashboard-template", config_path)
+                kibana_port = get_config("log-collector", "kibana-port", config_path)
+
+                log_dashboard_url = ""
 
             tar = tarfile.open(name=tar_filename, mode='w')
 
