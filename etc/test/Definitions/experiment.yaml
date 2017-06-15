@@ -82,7 +82,7 @@ topology_template:
       type: SecurityResource
       properties:
         resource_id: firewall
-        want_agent: true
+        want_agent: false
         testbed: ericsson
         default_rule: allow 
         denied_ips: [127.0.0.1]
