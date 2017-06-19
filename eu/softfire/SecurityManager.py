@@ -17,6 +17,13 @@ class SecurityManager(AbstractManager):
         super(SecurityManager, self).__init__(config_path)
         self.local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
         self.resources_db = '%s/security-manager.db' % self.local_files_path
+        conn = sqlite3.connect(self.resources_db)
+        cur = conn.cursor()
+        cur.execute('''CREATE TABLE IF NOT EXISTS elastic_indexes (username, elastic_index)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS resources (username, project_id, nsr_id, nsd_id, random_id, elastic_index)''')
+
+        conn.commit()
+        conn.close()
 
     def refresh_resources(self, user_info):
         return None
@@ -79,9 +86,6 @@ class SecurityManager(AbstractManager):
                 logger.info(message)
                 raise ResourceValidationError(message=message)
 
-            ####### for test ######
-            #self.provide_resources(user_info, payload)
-            ######################
             return
 
     def provide_resources(self, user_info, payload=None):
@@ -135,6 +139,9 @@ class SecurityManager(AbstractManager):
                 '''Set default rule'''
                 add_rule_to_fw(fd, "default %s" % properties["default_rule"])
 
+                if properties["logging"] :
+                    fd.write("ufw logging on\n")
+
                 '''Set rules for list of IPs'''
                 for ip_list in ip_lists :
                     if ip_list in properties:
@@ -149,28 +156,40 @@ class SecurityManager(AbstractManager):
 
             if properties["logging"] :
                 logger.debug("Configuring logging")
-                '''Configure logging to send log messages to <collector_ip>'''
-                elastic_index = random_id
+
+                '''Selection of the Elasticsearch Index'''
+                conn = sqlite3.connect(self.resources_db)
+                cur = conn.cursor()
+
+                query = "SELECT index FROM elastic_indexes WHERE username='%s'" % (user_info.name)
+                res = cur.execute(query)
+                row = res.fetchone()
+                try :
+                    elastic_index = row[0]
+                except Exception :
+                    elastic_index = random_string(15)
+                    query = "INSERT INTO elastic_indexes (username, index) VALUES ('%s', '%s')" % \
+                            (user_info.name, elastic_index)
+                    logger.debug("Executing %s" % query)
+                    cur.execute(query)
+                    conn.commit()
+                conn.close()
+
                 collector_ip = get_config("log-collector", "ip", config_path)
                 logstash_port = get_config("log-collector", "logstash-port", config_path)
+
+                '''Configure rsyslog to send log messages to <collector_ip>'''
                 rsyslog_conf = "%s/scripts/10-softfire.conf" % tmp_files_path
                 conf = ""
                 with open(rsyslog_conf) as fd_old :
                     for line in fd_old :
                         conf += line.replace("test", elastic_index)
-
                 print(collector_ip)
                 conf += '''\nif ($msg contains "[UFW ") then { 
                 action(type="omfwd" target="%s" port="%s" template="softfireFormat")
                 }\n''' % (collector_ip, logstash_port)
-
                 with open(rsyslog_conf, "w") as fd_new:
                     fd_new.write(conf)
-                elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
-                dashboard_template = get_config("log-collector", "dashboard-template", config_path)
-                kibana_port = get_config("log-collector", "kibana-port", config_path)
-
-                log_dashboard_url = ""
 
             tar = tarfile.open(name=tar_filename, mode='w')
 
@@ -213,9 +232,8 @@ class SecurityManager(AbstractManager):
         # TODO store reference between resource and user. ADD status, api-ip, dashboard_url
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
-        cur.execute('''CREATE TABLE IF NOT EXISTS resources (username, project_id, nsr_id, nsd_id, random_id, log_dashboard_url)''')
-        query = "INSERT INTO resources (username, project_id, nsr_id, nsd_id, random_id, log_dashboard_url) VALUES ('%s', '%s', '%s', '%s', '%s', '%s')" % \
-                (user_info.name, project_id, nsr_id, nsd_id, random_id, log_dashboard_url)
+        query = "INSERT INTO resources (username, project_id, nsr_id, nsd_id, random_id, elastic_index) VALUES ('%s', '%s', '%s', '%s', '%s', '%s')" % \
+                (user_info.name, project_id, nsr_id, nsd_id, random_id, elastic_index)
         logger.debug("Executing %s" % query)
 
         cur.execute(query)

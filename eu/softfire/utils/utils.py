@@ -87,10 +87,59 @@ def add_rule_to_fw(fd, rule) :
     fd.write("curl -X POST -H \"Content-Type: text/plain\" -d '%s' http://localhost:5000/ufw/rules\n" % rule)
 
 def get_kibana_element(el_type, el_id):
+    elastic_ip = get_config("log-collector", "ip", config_path)
+    elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
     resp = requests.get("http://%s:%s/.kibana/%s/%s" % (elastic_ip, elastic_port, el_type, el_id))
     return resp.json()
 
 def post_kibana_element(el_type, el_id, data):
+    elastic_ip = get_config("log-collector", "ip", config_path)
+    elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
     resp = requests.post("http://%s:%s/.kibana/%s/%s" % (elastic_ip, elastic_port, el_type, el_id), data=data)
     return resp.json()
 
+def create_kibana_dashboard(elastic_index) :
+    collector_ip = get_config("log-collector", "ip", config_path)
+    elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
+    dashboard_template = get_config("log-collector", "dashboard-template", config_path)
+    kibana_port = get_config("log-collector", "kibana-port", config_path)
+
+    '''Push of the Index pattern to Elasticsearch'''
+    url = "https://%s:%s/.kibana/index-pattern/%s-*" % (collector_ip, elastic_port, elastic_index)
+    data = {"title": "%s-*" % elastic_index, "timeFieldName": "@timestamp"}
+    requests.post(url, data=data)
+
+    dashboard = get_kibana_element("dashboard", dashboard_template)
+    panels = json.loads(dashboard["_source"]["panelsJSON"])
+
+    '''Cycle through the dashboards panel to see which need to be changed'''
+    for i, p in enumerate(panels):
+
+        '''Get the element'''
+        element = get_kibana_element(p["type"], p["id"])
+        source = json.loads(element["_source"]["kibanaSavedObjectMeta"]["searchSourceJSON"])
+
+        '''If the element contain the index, this need to be changed'''
+        if "index" in source.keys():
+            # TODO Change index
+            source["index"] = elastic_index
+            element["_source"]["kibanaSavedObjectMeta"]["searchSourceJSON"] = json.dumps(source)
+            el_id = random_string(15)
+            r = post_kibana_element(p["type"], el_id, json.dumps(element["_source"]))
+
+            '''Attach new id of the element'''
+            panels[i]["id"] = el_id
+
+    dashboard["_source"]["panelsJSON"] = json.dumps(panels)
+    dashboard_id = random_string(15)
+
+    '''Push new dashboard'''
+    r = post_kibana_element("dashboard", dashboard_id, json.dumps(dashboard["_source"]))
+
+    '''Store dashboard webpage'''
+    dashboard_page = "prova.html"
+    with open(dashboard_page, "w") as dfd:
+        html = '''<iframe src="http://{0}:{1}/app/kibana#/dashboard/{2}?embed=true&_g=()" height=100\% width=100\%></iframe>'''.format(
+            collector_ip, kibana_port, dashboard_id)
+        dfd.write(html)
+    return

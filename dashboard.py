@@ -18,7 +18,7 @@ def print_json(d):
 if __name__ == "__main__" :
     elastic_ip = get_config("log-collector", "ip", config_path)
     elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
-    dashboard_template = get_config("log-collector", "dashboard-template", config_path)
+
     kibana_port = get_config("log-collector", "kibana-port", config_path)
 
     #############
