@@ -92,6 +92,13 @@ class SecurityManager(AbstractManager):
         logger.debug("user_info: type: %s, %s" % (type(user_info), user_info))
         logger.debug("payload: %s" % payload)
 
+        # TODO REMOVE
+        try:
+            # TODO check param name
+            username = user_info.name
+        except Exception:
+            username = "experimenter"
+
 		#TODO REMOVE
         try :
             #TODO check param name
@@ -100,7 +107,7 @@ class SecurityManager(AbstractManager):
             project_id = "761d8b56-b21a-4db2-b4d2-16b05a01bc7e"
 			# Hardcoded to test interacion with Open baton. Should be sent by the experiment-manager
 
-        logger.info("Requested provide_resources by user %s" % user_info.name)
+        logger.info("Requested provide_resources by user %s" % username)
 
         nsr_id = ""
 
@@ -161,18 +168,20 @@ class SecurityManager(AbstractManager):
                 conn = sqlite3.connect(self.resources_db)
                 cur = conn.cursor()
 
-                query = "SELECT index FROM elastic_indexes WHERE username='%s'" % (user_info.name)
+                query = "SELECT elastic_index FROM elastic_indexes WHERE username='%s'" % (username)
                 res = cur.execute(query)
                 row = res.fetchone()
                 try :
                     elastic_index = row[0]
-                except Exception :
+                except TypeError :
                     elastic_index = random_string(15)
-                    query = "INSERT INTO elastic_indexes (username, index) VALUES ('%s', '%s')" % \
-                            (user_info.name, elastic_index)
+                    query = "INSERT INTO elastic_indexes (username, elastic_index) VALUES ('%s', '%s')" % \
+                            (username, elastic_index)
                     logger.debug("Executing %s" % query)
                     cur.execute(query)
                     conn.commit()
+
+                    create_kibana_dashboard(elastic_index)
                 conn.close()
 
                 collector_ip = get_config("log-collector", "ip", config_path)
@@ -201,7 +210,7 @@ class SecurityManager(AbstractManager):
 
                 link = "http://%s:%s/%s/%s" % (get_config("system", "ip", config_file_path=config_path), get_config("api", "port", config_file_path=config_path), properties["resource_id"], random_id)
                 response.append(json.dumps({"download_link" : link}))
-                #TODO send link to the user to download her scripts
+                #TODO send link to the user to download the scripts
             else :
                 #TODO add testbed to descriptor & change name/version to avoid conflicts
                 vnfd = {}
@@ -233,7 +242,7 @@ class SecurityManager(AbstractManager):
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
         query = "INSERT INTO resources (username, project_id, nsr_id, nsd_id, random_id, elastic_index) VALUES ('%s', '%s', '%s', '%s', '%s', '%s')" % \
-                (user_info.name, project_id, nsr_id, nsd_id, random_id, elastic_index)
+                (username, project_id, nsr_id, nsd_id, random_id, elastic_index)
         logger.debug("Executing %s" % query)
 
         cur.execute(query)
@@ -260,10 +269,15 @@ class SecurityManager(AbstractManager):
             nsr_id = r["nsr_id"]
             project_id = r["project_id"]
             username = r["username"]
+            elastic_index = r["elastic_index"]
             #TODO FIX THESE
             #download_link = r["download_link"]
             #dashboard_url = r["dashboard_url"]
             #api_url = r["api_url"]
+
+            '''Repush index-pattern'''
+            if elastic_index != "" :
+                push_kibana_index(elastic_index)
 
             if nsr_id == "" :
                 return ""
@@ -304,23 +318,33 @@ class SecurityManager(AbstractManager):
         return result
 
 
-    def release_resources(self, user_info, payload=None):
-        logger.info("Requested release_resources by user %s" % user_info.name)
+    def release_resources(self, user_info=None, payload=None):
+        # TODO REMOVE
+        try:
+            # TODO check param name
+            username = user_info.name
+        except Exception:
+            username = "experimenter"
+
+        logger.info("Requested release_resources by user %s" % username)
         logger.debug("Arrived release_resources\nPayload: %s" % payload)
 
         conn = sqlite3.connect(self.resources_db)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
-        query = "SELECT * FROM resources WHERE username = '%s'" % user_info.name
+        query = "SELECT * FROM resources WHERE username = '%s'" % username
         res = cur.execute(query)
         rows = res.fetchall()
         for r in rows:
             delete_ns(nsr_id=r["nsr_id"], nsd_id=r["nsd_id"], project_id=r["project_id"])
             shutil.rmtree("%s/tmp/%s" % (self.local_files_path, r["random_id"]))
 
-        query = "DELETE FROM resources WHERE username = '%s'" % user_info.name
+        query = "DELETE FROM resources WHERE username = '%s'" % username
         ################
+        cur.execute(query)
+
+        query = "DELETE FROM elastic_indexes WHERE username = '%s'" % username
         cur.execute(query)
         conn.commit()
         conn.close()

@@ -90,6 +90,7 @@ def get_kibana_element(el_type, el_id):
     elastic_ip = get_config("log-collector", "ip", config_path)
     elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
     resp = requests.get("http://%s:%s/.kibana/%s/%s" % (elastic_ip, elastic_port, el_type, el_id))
+    print(resp)
     return resp.json()
 
 def post_kibana_element(el_type, el_id, data):
@@ -98,16 +99,28 @@ def post_kibana_element(el_type, el_id, data):
     resp = requests.post("http://%s:%s/.kibana/%s/%s" % (elastic_ip, elastic_port, el_type, el_id), data=data)
     return resp.json()
 
+def push_kibana_index(elastic_index):
+    elastic_ip = get_config("log-collector", "ip", config_path)
+    elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
+    '''Push of the Index pattern to Elasticsearch'''
+    url = "http://%s:%s/.kibana/index-pattern/%s-*" % (elastic_ip, elastic_port, elastic_index)
+    data = {"title": "%s-*" % elastic_index, "timeFieldName": "@timestamp"}
+    print("Pushing %s to %s" % (data, url))
+    resp = requests.post(url, data=json.dumps(data))
+    print(resp)
+
+
 def create_kibana_dashboard(elastic_index) :
+    logger = get_logger(config_path)
+
+    logger.debug("Start creating dashboard")
     collector_ip = get_config("log-collector", "ip", config_path)
     elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
     dashboard_template = get_config("log-collector", "dashboard-template", config_path)
     kibana_port = get_config("log-collector", "kibana-port", config_path)
 
     '''Push of the Index pattern to Elasticsearch'''
-    url = "https://%s:%s/.kibana/index-pattern/%s-*" % (collector_ip, elastic_port, elastic_index)
-    data = {"title": "%s-*" % elastic_index, "timeFieldName": "@timestamp"}
-    requests.post(url, data=data)
+    push_kibana_index(elastic_index)
 
     dashboard = get_kibana_element("dashboard", dashboard_template)
     panels = json.loads(dashboard["_source"]["panelsJSON"])
@@ -122,7 +135,7 @@ def create_kibana_dashboard(elastic_index) :
         '''If the element contain the index, this need to be changed'''
         if "index" in source.keys():
             # TODO Change index
-            source["index"] = elastic_index
+            source["index"] = "%s-*" % elastic_index
             element["_source"]["kibanaSavedObjectMeta"]["searchSourceJSON"] = json.dumps(source)
             el_id = random_string(15)
             r = post_kibana_element(p["type"], el_id, json.dumps(element["_source"]))
@@ -135,9 +148,10 @@ def create_kibana_dashboard(elastic_index) :
 
     '''Push new dashboard'''
     r = post_kibana_element("dashboard", dashboard_id, json.dumps(dashboard["_source"]))
+    print(r)
 
     '''Store dashboard webpage'''
-    dashboard_page = "prova.html"
+    dashboard_page = "/etc/softfire/security-manager/prova.html"
     with open(dashboard_page, "w") as dfd:
         html = '''<iframe src="http://{0}:{1}/app/kibana#/dashboard/{2}?embed=true&_g=()" height=100\% width=100\%></iframe>'''.format(
             collector_ip, kibana_port, dashboard_id)
