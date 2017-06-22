@@ -42,7 +42,6 @@ def deploy_package(path, project_id) :
     vnfp = vnfp_agent.create(path)
 
     '''Create and upload the NSD'''
-    #TODO fix
     nsd_file_path = "etc/resources/nsd-fw.json"
 
     nsd_agent = agent.get_ns_descriptor_agent(project_id)
@@ -110,7 +109,7 @@ def push_kibana_index(elastic_index):
     print(resp)
 
 
-def create_kibana_dashboard(elastic_index) :
+def create_kibana_dashboard(elastic_index, dashboard_path) :
     logger = get_logger(config_path)
 
     logger.debug("Start creating dashboard")
@@ -134,7 +133,6 @@ def create_kibana_dashboard(elastic_index) :
 
         '''If the element contain the index, this need to be changed'''
         if "index" in source.keys():
-            # TODO Change index
             source["index"] = "%s-*" % elastic_index
             element["_source"]["kibanaSavedObjectMeta"]["searchSourceJSON"] = json.dumps(source)
             el_id = random_string(15)
@@ -151,9 +149,9 @@ def create_kibana_dashboard(elastic_index) :
     print(r)
 
     '''Store dashboard webpage'''
-    dashboard_page = "/etc/softfire/security-manager/prova.html"
-    with open(dashboard_page, "w") as dfd:
-        html = '''<iframe src="http://{0}:{1}/app/kibana#/dashboard/{2}?embed=true&_g=()" height=100\% width=100\%></iframe>'''.format(
+
+    with open(dashboard_path, "w") as dfd:
+        html = '''<iframe src="http://{0}:{1}/app/kibana#/dashboard/{2}?embed=true&_g=()" height=1000\% width=100\%></iframe>'''.format(
             collector_ip, kibana_port, dashboard_id)
         dfd.write(html)
     return
