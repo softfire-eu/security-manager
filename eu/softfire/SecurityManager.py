@@ -112,7 +112,6 @@ class SecurityManager(AbstractManager):
         nsr_id = ""
 
         nsd_id = ""
-        log_dashboard_url = ""
 
         random_id = random_string(15)
 
@@ -174,6 +173,7 @@ class SecurityManager(AbstractManager):
                 try :
                     elastic_index = row[0]
                 except TypeError :
+                    logger.debug("Creating new index and dashboard on Elasticsearch")
                     elastic_index = random_string(15)
                     query = "INSERT INTO elastic_indexes (username, elastic_index) VALUES ('%s', '%s')" % \
                             (username, elastic_index)
@@ -181,24 +181,29 @@ class SecurityManager(AbstractManager):
                     cur.execute(query)
                     conn.commit()
 
-                    create_kibana_dashboard(elastic_index)
+                    dashboard_path = "%s/dashboard.html" % tmp_files_path
+                    create_kibana_dashboard(elastic_index, dashboard_path)
                 conn.close()
+
 
                 collector_ip = get_config("log-collector", "ip", config_path)
                 logstash_port = get_config("log-collector", "logstash-port", config_path)
 
                 '''Configure rsyslog to send log messages to <collector_ip>'''
+                logger.debug("Configuring logging to %s" % collector_ip)
                 rsyslog_conf = "%s/scripts/10-softfire.conf" % tmp_files_path
                 conf = ""
                 with open(rsyslog_conf) as fd_old :
                     for line in fd_old :
                         conf += line.replace("test", elastic_index)
-                print(collector_ip)
                 conf += '''\nif ($msg contains "[UFW ") then { 
                 action(type="omfwd" target="%s" port="%s" template="softfireFormat")
                 }\n''' % (collector_ip, logstash_port)
                 with open(rsyslog_conf, "w") as fd_new:
                     fd_new.write(conf)
+
+                link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path), get_config("api", "port", config_file_path=config_path), random_id)
+                response.append(json.dumps({"log_dashboard_link" : link}))
 
             tar = tarfile.open(name=tar_filename, mode='w')
 
@@ -210,7 +215,6 @@ class SecurityManager(AbstractManager):
 
                 link = "http://%s:%s/%s/%s" % (get_config("system", "ip", config_file_path=config_path), get_config("api", "port", config_file_path=config_path), properties["resource_id"], random_id)
                 response.append(json.dumps({"download_link" : link}))
-                #TODO send link to the user to download the scripts
             else :
                 #TODO add testbed to descriptor & change name/version to avoid conflicts
                 vnfd = {}
@@ -219,6 +223,13 @@ class SecurityManager(AbstractManager):
                 logger.debug(vnfd)
                 vnfd["name"] +=  ("-%s" % random_id)
                 vnfd["type"] = vnfd["name"]
+
+                #TODO set vimInstance correctly. Check. Here to test
+                if project_id != "761d8b56-b21a-4db2-b4d2-16b05a01bc7e" :
+                    vnfd["vdu"][0]["vimInstanceName"] = [ properties["testbed"] ]
+
+                #TODO set network. To pe added also in the resource definition
+
                 logger.debug(vnfd["name"])
                 logger.debug("Prepared VNFD: %s" % vnfd)
                 with open("%s/vnfd.json" % tmp_files_path, "w") as fd:
@@ -226,7 +237,6 @@ class SecurityManager(AbstractManager):
                 '''Prepare VNFPackage'''
                 tar.add('%s' % tmp_files_path, arcname='')
                 tar.close()
-                # TODO deploy VM on the specified testbed and send back IP address
                 #try :
                 nsr_details = json.loads(deploy_package(path=tar_filename, project_id=project_id))
                 nsr_id = nsr_details["id"]
@@ -238,7 +248,6 @@ class SecurityManager(AbstractManager):
                     #TODO Fix
                     #logger.error(e)
 
-        # TODO store reference between resource and user. ADD status, api-ip, dashboard_url
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
         query = "INSERT INTO resources (username, project_id, nsr_id, nsd_id, random_id, elastic_index) VALUES ('%s', '%s', '%s', '%s', '%s', '%s')" % \
@@ -252,6 +261,7 @@ class SecurityManager(AbstractManager):
         '''
         Return an array of JSON strings with information about the resources
         '''
+        logger.debug("Responding %s" % json.dumps(response))
         return response
 
     def _update_status(self) -> dict:
@@ -265,15 +275,11 @@ class SecurityManager(AbstractManager):
         res = cur.execute(query)
         rows = res.fetchall()
         for r in rows:
-            #TODO nsr_id e project_id could be empty with want_agent
+            '''nsr_id e project_id could be empty with want_agent'''
             nsr_id = r["nsr_id"]
             project_id = r["project_id"]
             username = r["username"]
             elastic_index = r["elastic_index"]
-            #TODO FIX THESE
-            #download_link = r["download_link"]
-            #dashboard_url = r["dashboard_url"]
-            #api_url = r["api_url"]
 
             '''Repush index-pattern'''
             if elastic_index != "" :
@@ -302,7 +308,6 @@ class SecurityManager(AbstractManager):
 
 
                 print(s)
-                #if ACTIVE
                 if s["status"] == "ACTIVE" :
                     s["ip"] = ob_resp["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]["ip"]
                     s["api_url"] = "http://%s:5000" % s["ip"]
@@ -337,17 +342,19 @@ class SecurityManager(AbstractManager):
         res = cur.execute(query)
         rows = res.fetchall()
         for r in rows:
-            delete_ns(nsr_id=r["nsr_id"], nsd_id=r["nsd_id"], project_id=r["project_id"])
-            shutil.rmtree("%s/tmp/%s" % (self.local_files_path, r["random_id"]))
+            try :
+                delete_ns(nsr_id=r["nsr_id"], nsd_id=r["nsd_id"], project_id=r["project_id"])
+                file_path = "%s/tmp/%s" % (self.local_files_path, r["random_id"])
+                shutil.rmtree(file_path)
+            except FileNotFoundError :
+                logger.error("FileNotFoud: %s" % file_path)
 
         query = "DELETE FROM resources WHERE username = '%s'" % username
-        ################
         cur.execute(query)
 
-        query = "DELETE FROM elastic_indexes WHERE username = '%s'" % username
+        #query = "DELETE FROM elastic_indexes WHERE username = '%s'" % username
         cur.execute(query)
         conn.commit()
         conn.close()
 
-        #TODO delete folders
         return
