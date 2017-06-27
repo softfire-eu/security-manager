@@ -19,8 +19,8 @@ class SecurityManager(AbstractManager):
         self.resources_db = '%s/security-manager.db' % self.local_files_path
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
-        cur.execute('''CREATE TABLE IF NOT EXISTS elastic_indexes (username, elastic_index)''')
-        cur.execute('''CREATE TABLE IF NOT EXISTS resources (username, project_id, nsr_id, nsd_id, random_id, elastic_index)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS elastic_indexes (username, elastic_index, dashboard_id)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS resources (username, resource_id, project_id, nsr_id, nsd_id, random_id, elastic_index)''')
 
         conn.commit()
         conn.close()
@@ -79,9 +79,9 @@ class SecurityManager(AbstractManager):
                             logger.info(message)
                             raise ResourceValidationError(message=message)
 
-            '''Check testbed vale'''
-            testbeds = ["fokus", "ericsson", "ads", "dt"]
-            if (not properties["want_agent"]) and (not properties["testbed"] in testbeds) :
+            '''Check testbed value'''
+            testbeds = get_config("open-baton", "testbeds", config_path)
+            if (not properties["want_agent"]) and (not "testbed" in properties or (not properties["testbed"] in testbeds)) :
                 message = "testbed does not contain a valid value"
                 logger.info(message)
                 raise ResourceValidationError(message=message)
@@ -104,7 +104,7 @@ class SecurityManager(AbstractManager):
             #TODO check param name
             project_id = user_info.project_id
         except Exception :
-            project_id = "761d8b56-b21a-4db2-b4d2-16b05a01bc7e"
+            project_id = get_config("open-baton", "default-project", config_path)
 			# Hardcoded to test interacion with Open baton. Should be sent by the experiment-manager
 
         logger.info("Requested provide_resources by user %s" % username)
@@ -137,7 +137,8 @@ class SecurityManager(AbstractManager):
         tar.close()
 
         response = []
-        if properties["resource_id"] == "firewall" :
+        resource_id = properties["resource_id"]
+        if resource_id == "firewall" :
 
             '''Modify scripts with custom configuration'''
             ufw_script = "%s/scripts/ufw.sh" % tmp_files_path
@@ -146,7 +147,7 @@ class SecurityManager(AbstractManager):
                 add_rule_to_fw(fd, "default %s" % properties["default_rule"])
 
                 if properties["logging"] :
-                    fd.write("ufw logging on\n")
+                    fd.write("ufw logging low\n")
 
                 '''Set rules for list of IPs'''
                 for ip_list in ip_lists :
@@ -161,28 +162,36 @@ class SecurityManager(AbstractManager):
 
 
             if properties["logging"] :
+                collector_ip = get_config("log-collector", "ip", config_path)
+                elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
+                dashboard_template = get_config("log-collector", "dashboard-template", config_path)
+                kibana_port = get_config("log-collector", "kibana-port", config_path)
                 logger.debug("Configuring logging")
 
                 '''Selection of the Elasticsearch Index'''
                 conn = sqlite3.connect(self.resources_db)
                 cur = conn.cursor()
 
-                query = "SELECT elastic_index FROM elastic_indexes WHERE username='%s'" % (username)
+                query = "SELECT elastic_index, dashboard_id FROM elastic_indexes WHERE username='%s'" % (username)
                 res = cur.execute(query)
                 row = res.fetchone()
+                dashboard_path = "%s/dashboard.html" % tmp_files_path
                 try :
                     elastic_index = row[0]
+                    dashboard_id = row[1]
+                    store_kibana_dashboard(dashboard_path, collector_ip, kibana_port, dashboard_id)
                 except TypeError :
                     logger.debug("Creating new index and dashboard on Elasticsearch")
                     elastic_index = random_string(15)
-                    query = "INSERT INTO elastic_indexes (username, elastic_index) VALUES ('%s', '%s')" % \
-                            (username, elastic_index)
+                    dashboard_id = random_string(15)
+                    query = "INSERT INTO elastic_indexes (username, elastic_index, dashboard_id) VALUES ('%s', '%s', '%s')" % \
+                            (username, elastic_index, dashboard_id)
                     logger.debug("Executing %s" % query)
                     cur.execute(query)
                     conn.commit()
 
-                    dashboard_path = "%s/dashboard.html" % tmp_files_path
-                    create_kibana_dashboard(elastic_index, dashboard_path)
+
+                    create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id)
                 conn.close()
 
 
@@ -225,8 +234,7 @@ class SecurityManager(AbstractManager):
                 vnfd["type"] = vnfd["name"]
 
                 #TODO set vimInstance correctly. Check. Here to test
-                if project_id != "761d8b56-b21a-4db2-b4d2-16b05a01bc7e" :
-                    vnfd["vdu"][0]["vimInstanceName"] = [ properties["testbed"] ]
+                vnfd["vdu"][0]["vimInstanceName"] = [ properties["testbed"] ]
 
                 #TODO set network. To pe added also in the resource definition
 
@@ -237,10 +245,17 @@ class SecurityManager(AbstractManager):
                 '''Prepare VNFPackage'''
                 tar.add('%s' % tmp_files_path, arcname='')
                 tar.close()
-                #try :
-                nsr_details = json.loads(deploy_package(path=tar_filename, project_id=project_id))
-                nsr_id = nsr_details["id"]
-                nsd_id = nsr_details["descriptor_reference"]
+                nsr_details = {}
+                try :
+                    nsr_details = json.loads(deploy_package(path=tar_filename, project_id=project_id))
+                    nsr_id = nsr_details["id"]
+                    nsd_id = nsr_details["descriptor_reference"]
+                except Exception :
+                    message = "Error deploying the Package on Open Baton"
+                    logger.error(message)
+                    response.append(json.dumps({"ERROR" : message}))
+
+
 
 
                 response.append(json.dumps(nsr_details))
@@ -250,8 +265,8 @@ class SecurityManager(AbstractManager):
 
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
-        query = "INSERT INTO resources (username, project_id, nsr_id, nsd_id, random_id, elastic_index) VALUES ('%s', '%s', '%s', '%s', '%s', '%s')" % \
-                (username, project_id, nsr_id, nsd_id, random_id, elastic_index)
+        query = "INSERT INTO resources (username, resource_id, project_id, nsr_id, nsd_id, random_id, elastic_index) VALUES ('%s',  '%s', '%s', '%s', '%s', '%s', '%s')" % \
+                (username, resource_id, project_id, nsr_id, nsd_id, random_id, elastic_index)
         logger.debug("Executing %s" % query)
 
         cur.execute(query)
@@ -274,25 +289,34 @@ class SecurityManager(AbstractManager):
         query = "SELECT * FROM resources"
         res = cur.execute(query)
         rows = res.fetchall()
+
         for r in rows:
+            s = {}
             '''nsr_id e project_id could be empty with want_agent'''
             nsr_id = r["nsr_id"]
             project_id = r["project_id"]
             username = r["username"]
             elastic_index = r["elastic_index"]
+            random_id = r["random_id"]
+            resource_id = r["resource_id"]
 
             '''Repush index-pattern'''
             if elastic_index != "" :
-                push_kibana_index(elastic_index)
+                link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path), get_config("api", "port", config_file_path=config_path), random_id)
+                s["dashboard_log_link"] = link
+                try :
+                    push_kibana_index(elastic_index)
+                except Exception :
+                    logger.error("Problem contacting the log collector")
 
             if nsr_id == "" :
-                return ""
-
+                link = "http://%s:%s/%s/%s" % (get_config("system", "ip", config_file_path=config_path), get_config("api", "port", config_file_path=config_path), resource_id, random_id)
+                s["download_link"] = link
 
             else :
                 '''Open Baton resource'''
                 logger.debug("Checking resource nsr_id: %s" % nsr_id)
-                s = {}
+
                 try :
                     agent = ob_login(project_id)
                     nsr_agent = agent.get_ns_records_agent(project_id=project_id)
@@ -320,6 +344,7 @@ class SecurityManager(AbstractManager):
             if username not in result.keys():
                 result[username] = []
             result[username].append(json.dumps(s))
+        logger.debug("Result: %s" % result)
         return result
 
 
@@ -342,9 +367,14 @@ class SecurityManager(AbstractManager):
         res = cur.execute(query)
         rows = res.fetchall()
         for r in rows:
-            try :
-                delete_ns(nsr_id=r["nsr_id"], nsd_id=r["nsd_id"], project_id=r["project_id"])
-                file_path = "%s/tmp/%s" % (self.local_files_path, r["random_id"])
+            if r["nsr_id"] != "" :
+                try :
+                    delete_ns(nsr_id=r["nsr_id"], nsd_id=r["nsd_id"], project_id=r["project_id"])
+                except Exception :
+                    logger.error("Problem contacting Open Baton")
+
+            file_path = "%s/tmp/%s" % (self.local_files_path, r["random_id"])
+            try:
                 shutil.rmtree(file_path)
             except FileNotFoundError :
                 logger.error("FileNotFoud: %s" % file_path)

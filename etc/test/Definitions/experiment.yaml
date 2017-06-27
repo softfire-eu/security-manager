@@ -1,80 +1,74 @@
+description: "SoftFIRE Node Types definitions"
 tosca_definitions_version: tosca_simple_yaml_1_0
-
-description: Template for SoftFIRE yaml resource request definition
-
-tosca_definitions_version: tosca_simple_yaml_1_0
-
-description: Node Types definitions
-
 node_types:
+  MonitoringResource:
+    derived_from: eu.softfire.BaseResource
+    description: "Defines the Zabbix monitoring resource requested"
+    properties:
+      testbed:
+        description: "Location where to deploy the monitoring server"
+        required: false
+  NfvResource:
+    derived_from: eu.softfire.BaseResource
+    description: "Defines a NFV resoruce request in the SoftFIRE Middleware"
+    properties:
+      ssh_pub_key:
+        required: false
+        type: string
+      file_name:
+        required: false
+        type: string
+      nsd_name:
+        type: string
+      testbeds:
+        entry_schema:
+          description: "mapping between vnf types and testbed. Or 'all':<testbed_name> for all in one"
+          type: string
+        type: map
+  SdnResource:
+    derived_from: eu.softfire.BaseResource
+    description: "Defines a SDN resource request in the SoftFIRE Middleware"
+  PhysicalResource:
+    derived_from: eu.softfire.BaseResource
+    description: "Defines a Physical resource request in the SoftFIRE Middleware"
+  SecurityResource:
+    derived_from: eu.softfire.BaseResource
+    description: "Defines a Security agent to be deployed. More details on *docu_URL*"
+    properties:
+      allowed_ips:
+        entry_schema:
+          type: string
+        required: false
+        type: list
+      default_rule:
+        required: true
+        type: string
+      denied_ips:
+        entry_schema:
+          type: string
+        required: false
+        type: list
+      logging:
+        required: true
+        type: boolean
+      testbed:
+        required: false
+        type: string
+      want_agent:
+        required: true
+        type: boolean
   eu.softfire.BaseResource:
     derived_from: tosca.nodes.Root
     properties:
       resource_id:
-        type: string
         required: true
-
-  SdnResource:
-    derived_from: eu.softfire.BaseResource
-    description: Defines a SDN resource request in the SoftFIRE Middleware
-
-
-  MonitoringResource:
-    derived_from: eu.softfire.BaseResource
-    description: Defines the Zabbix monitoring resource requested
-    properties:
-      testbed:
         type: string
+      start-date:
         required: false
-        description: Location where to deploy the monitoring server
-
-  SecurityResource:
-    derived_from: eu.softfire.BaseResource
-    description: Defines a Security agent to be deployed. More details on *docu_URL*
-    properties:
-      resource_id:
         type: string
-        required: true
-        default: firewall
-      testbed:
-        type: string
+      end-date:
         required: false
-      want_agent:
-        type: boolean
-        required: true
-        default: true
-      logging:
-        type: boolean
-        required: true
-        default: true
-      allowed_ips:
-        type: list
-        entry_schema:
-          type: string
-        required: false
-      denied_ips:
-        type: list
-        entry_schema:
-            type: string
-        required: false
-      default_rule:
         type: string
-        required: true 
-
-  NfvResource:
-    derived_from: eu.softfire.BaseResource
-    description: Defines a NFV resoruce request in the SoftFIRE Middleware
-    properties:
-      testbeds:
-        type: map
-        entry_schema:
-          description: mapping between vnf types and testbed. Or 'all':<testbed_name> for all in one
-          type: string
-      nsd_name:
-        type: string
-      file_name:
-        type: string
-        required: false
 
 topology_template:
   node_templates:
@@ -83,15 +77,16 @@ topology_template:
       properties:
         resource_id: firewall
         want_agent: true
-        testbed: ericsson
+        testbed: vim-instance-fokus-y2
         default_rule: allow 
         denied_ips: [127.0.0.1]
         logging: true
-#    fr:
-#      type: SecurityResource
-#      properties:
-#        resource_id: firewall
-#        want_agent: true
-#        default_rule: allow
-#        denied_ips: [127.0.0.1, 172.20.30.2]
-
+    fr:
+      type: SecurityResource
+      properties:
+        resource_id: firewall
+        want_agent: true
+        default_rule: allow
+        denied_ips: [127.0.0.1, 172.20.30.2]
+        logging: true
+        testbed: vim-instance-fokus-y2
