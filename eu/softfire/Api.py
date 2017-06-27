@@ -18,7 +18,6 @@ def download_scripts(id, resource):
     file_path = get_config(section="local-files", key="path", config_file_path=config_path)
     #username = aaa.current_user.username
 
-    local_files_path = get_config("local-files", "path", config_path)
     '''
     resources_db = '%s/security-manager.db' % local_files_path
     conn = sqlite3.connect(resources_db)
@@ -41,7 +40,12 @@ def download_scripts(id, resource):
     tmp_file_path = "%s/tmp" % file_path
     filename = "%s/%s%s" % (id, resource, ext)
 
-    return static_file(filename, tmp_file_path, download=download)
+    try:
+        f = static_file(filename, tmp_file_path, download=download)
+    except Exception :
+        f = "ERROR"
+    return f
+
 
 @bottle.post('/register')
 def register():

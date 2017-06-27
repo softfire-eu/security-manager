@@ -14,7 +14,7 @@ if __name__ == "__main__" :
         secman = SecurityManager.SecurityManager("/etc/softfire/security-manager/security-manager.ini")
         secman.release_resources()
         secman.provide_resources(payload=secr, user_info=None)
-        for i in range(1,10):
+        for i in range(1,100):
 
             time.sleep(10)
             secman._update_status()

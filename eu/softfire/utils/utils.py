@@ -32,7 +32,6 @@ def random_string(size):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(size))
 
 def deploy_package(path, project_id) :
-    ob_conf = get_config_parser(config_path)["open-baton"]
 
     '''Open Baton Login'''
     agent = ob_login(project_id)
@@ -109,7 +108,7 @@ def push_kibana_index(elastic_index):
     print(resp)
 
 
-def create_kibana_dashboard(elastic_index, dashboard_path) :
+def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id) :
     logger = get_logger(config_path)
 
     logger.debug("Start creating dashboard")
@@ -142,11 +141,14 @@ def create_kibana_dashboard(elastic_index, dashboard_path) :
             panels[i]["id"] = el_id
 
     dashboard["_source"]["panelsJSON"] = json.dumps(panels)
-    dashboard_id = random_string(15)
 
     '''Push new dashboard'''
     r = post_kibana_element("dashboard", dashboard_id, json.dumps(dashboard["_source"]))
     print(r)
+    store_kibana_dashboard(dashboard_path, collector_ip, kibana_port, dashboard_id)
+    return
+
+def store_kibana_dashboard(dashboard_path, collector_ip, kibana_port, dashboard_id):
 
     '''Store dashboard webpage'''
 
@@ -154,4 +156,3 @@ def create_kibana_dashboard(elastic_index, dashboard_path) :
         html = '''<iframe src="http://{0}:{1}/app/kibana#/dashboard/{2}?embed=true&_g=()" height=1000\% width=100\%></iframe>'''.format(
             collector_ip, kibana_port, dashboard_id)
         dfd.write(html)
-    return
