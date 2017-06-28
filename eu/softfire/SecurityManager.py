@@ -184,6 +184,10 @@ class SecurityManager(AbstractManager):
                     logger.debug("Creating new index and dashboard on Elasticsearch")
                     elastic_index = random_string(15)
                     dashboard_id = random_string(15)
+                    try :
+                        create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id)
+                    except Exception :
+                        dashboard_id = ""
                     query = "INSERT INTO elastic_indexes (username, elastic_index, dashboard_id) VALUES ('%s', '%s', '%s')" % \
                             (username, elastic_index, dashboard_id)
                     logger.debug("Executing %s" % query)
@@ -191,7 +195,7 @@ class SecurityManager(AbstractManager):
                     conn.commit()
 
 
-                    create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id)
+
                 conn.close()
 
 
@@ -308,6 +312,7 @@ class SecurityManager(AbstractManager):
                     push_kibana_index(elastic_index)
                 except Exception :
                     logger.error("Problem contacting the log collector")
+                    s["dashboard_log_link"] = "ERROR"
 
             if nsr_id == "" :
                 link = "http://%s:%s/%s/%s" % (get_config("system", "ip", config_file_path=config_path), get_config("api", "port", config_file_path=config_path), resource_id, random_id)
