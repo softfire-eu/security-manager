@@ -6,14 +6,14 @@ It will then work when installed in site-packages on a target system
 where the runner script is in /usr/bin (or wherever)
 """
 from sdk.softfire.main import start_manager
-from eu.softfire.SecurityManager import SecurityManager, UpdateStatusThread
-import eu.softfire.Api as api
+from eu.softfire.sec.SecurityManager import SecurityManager, UpdateStatusThread
+import eu.softfire.sec.Api as api
 from multiprocessing import Process
 
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 import os
-from eu.softfire.utils.utils import config_path
+from eu.softfire.sec.utils.utils import config_path
 
 def start():
     os.environ["http_proxy"] = ""
