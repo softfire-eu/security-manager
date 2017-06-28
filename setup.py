@@ -15,22 +15,22 @@ def read(fname):
 
 setup(
     name="security-manager",
-    version="0.0.2",
+    version="0.1",
     author="SoftFIRE",
     author_email="softfire@softfire.eu",
     description="The SoftFIRE Security Manager",
     license="Apache 2",
-    keywords="python vnfm nfvo open baton openbaton sdk experiment manager softfire tosca openstack rest",
-    url="http://softfire.eu/",
+    keywords="python vnfm nfvo open baton openbaton sdk experiment manager softfire tosca openstack rest security firewall ips",
+    url="https://github.com/softfire-eu/security-manager",
     packages=find_packages(),
-    scripts=["manager"],
+    scripts=["security-manager"],
     install_requires=[
         'IPy',
         'openbaton-cli',
         'PyYAML',
         'requests',
         'softfire-sdk'
-    ],
+        ],
     long_description=read('README.md'),
     classifiers=[
         "Development Status :: 4 - Beta",
