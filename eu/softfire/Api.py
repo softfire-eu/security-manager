@@ -1,15 +1,15 @@
 import bottle, sqlite3
 from bottle import request, get, static_file
 from threading import Thread
-from cork import Cork
+#from cork import Cork
 from beaker.middleware import SessionMiddleware
 
 from eu.softfire.utils.utils import *
 from sdk.softfire.utils import get_config
 
-aaa = Cork(get_config("api", "cork-files-path", config_file_path=config_path))
-authorize = aaa.make_auth_decorator(fail_redirect="/login")
-bottle.TEMPLATE_PATH = [get_config('api', 'view-path', config_path)]
+#aaa = Cork(get_config("api", "cork-files-path", config_file_path=config_path))
+#authorize = aaa.make_auth_decorator(fail_redirect="/login")
+#bottle.TEMPLATE_PATH = [get_config('api', 'view-path', config_path)]
 
 @get('/<resource>/<id>')
 #@authorize()
@@ -22,7 +22,7 @@ def download_scripts(id, resource):
     resources_db = '%s/security-manager.db' % local_files_path
     conn = sqlite3.connect(resources_db)
     cur = conn.cursor()
-    res = cur.execute(\'''SELECT * FROM resources WHERE  username = "%s" AND random_id = "%s"\''' % (username, id))
+    res = cur.execute('SELECT * FROM resources WHERE  username = "%s" AND random_id = "%s"' % (username, id))
 
     if len(res.fetchall()) == 0 :
         conn.close()
@@ -46,7 +46,7 @@ def download_scripts(id, resource):
         f = "ERROR"
     return f
 
-
+'''
 @bottle.post('/register')
 def register():
     """Send out registration email"""
@@ -80,7 +80,7 @@ def login(referrer=None):
 @bottle.route('/logout')
 def logout():
 	aaa.logout(success_redirect='/login')
-
+'''
 
 
 
