@@ -4,7 +4,7 @@ from threading import Thread
 from org.openbaton.cli.agents.agents import OpenBatonAgentFactory
 from sdk.softfire.utils import *
 
-config_path = '/etc/softfire/security-manager/security-manager.ini'
+config_path = '/etc/softfire/security-manager.ini'
 
 class UpdateStatusThread(Thread):
     def __init__(self, manager):
