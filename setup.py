@@ -15,7 +15,7 @@ def read(fname):
 
 setup(
     name="security-manager",
-    version="0.1",
+    version="0.1.1",
     author="SoftFIRE",
     author_email="softfire@softfire.eu",
     description="The SoftFIRE Security Manager",
