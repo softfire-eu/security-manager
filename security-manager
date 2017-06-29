@@ -13,10 +13,17 @@ from multiprocessing import Process
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 import os
-from eu.softfire.sec.utils.utils import config_path
+from eu.softfire.sec.utils.utils import config_path, get_config
 
 def start():
     os.environ["http_proxy"] = ""
+
+    local_files_path = get_config("local-files", "path", config_path)
+    tmp_files_path = "%s/tmp" % local_files_path
+    if not os.path.exists(local_files_path):
+        os.makedirs(local_files_path)
+    if not os.path.exists(tmp_files_path):
+        os.makedirs(tmp_files_path)
 
     sec_manager = SecurityManager(config_path)
     thread = UpdateStatusThread(sec_manager)
