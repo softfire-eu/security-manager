@@ -1,22 +1,21 @@
-import bottle, sqlite3
-from bottle import request, get, static_file
-from threading import Thread
-#from cork import Cork
+import bottle
+# from cork import Cork
 from beaker.middleware import SessionMiddleware
-
-from eu.softfire.sec.utils.utils import *
+from bottle import request, get, static_file
 from sdk.softfire.utils import get_config
 
-#aaa = Cork(get_config("api", "cork-files-path", config_file_path=config_path))
-#authorize = aaa.make_auth_decorator(fail_redirect="/login")
-#bottle.TEMPLATE_PATH = [get_config('api', 'view-path', config_path)]
+from eu.softfire.sec.utils.utils import *
+
+
+# aaa = Cork(get_config("api", "cork-files-path", config_file_path=config_path))
+# authorize = aaa.make_auth_decorator(fail_redirect="/login")
+# bottle.TEMPLATE_PATH = [get_config('api', 'view-path', config_path)]
 
 @get('/<resource>/<id>')
-#@authorize()
+# @authorize()
 def download_scripts(id, resource):
-
     file_path = get_config(section="local-files", key="path", config_file_path=config_path)
-    #username = aaa.current_user.username
+    # username = aaa.current_user.username
 
     '''
     resources_db = '%s/security-manager.db' % local_files_path
@@ -33,7 +32,7 @@ def download_scripts(id, resource):
     if resource == "dashboard":
         ext = ".html"
         download = False
-    else :
+    else:
         ext = ".tar"
         download = True
 
@@ -42,9 +41,10 @@ def download_scripts(id, resource):
 
     try:
         f = static_file(filename, tmp_file_path, download=download)
-    except Exception :
+    except Exception:
         f = "ERROR"
     return f
+
 
 '''
 @bottle.post('/register')
@@ -81,7 +81,6 @@ def login(referrer=None):
 def logout():
 	aaa.logout(success_redirect='/login')
 '''
-
 
 
 class StartThread(Thread):
@@ -132,6 +131,8 @@ def error_translation(func):
     return wrapper
 
 '''
+
+
 def postd():
     return bottle.request.forms
 
@@ -159,19 +160,19 @@ def start():
 
     port = get_config(config_file_path=config_path, section='api', key='port', default=8080)
     app = bottle.app()
-    #bottle.install(error_translation)
+    # bottle.install(error_translation)
 
     session_opts = {
         'session.cookie_expires': True,
-        #'session.encrypt_key': get_config('api', 'encrypt_key', 'softfire'),
+        # 'session.encrypt_key': get_config('api', 'encrypt_key', 'softfire'),
         'session.httponly': True,
         'session.timeout': 3600 * 24,  # 1 day
         'session.type': 'cookie',
         'session.validate_key': True,
     }
     app = SessionMiddleware(app, session_opts)
-    #quiet_bottle = logger.getEffectiveLevel() < logging.DEBUG
-    #logger.debug("Bootlepy quiet mode: %s" % quiet_bottle)
+    # quiet_bottle = logger.getEffectiveLevel() < logging.DEBUG
+    # logger.debug("Bootlepy quiet mode: %s" % quiet_bottle)
 
     print(port)
     bottle.run(app=app, port=port, host='0.0.0.0')
