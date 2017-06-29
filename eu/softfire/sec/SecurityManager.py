@@ -80,8 +80,9 @@ class SecurityManager(AbstractManager):
                             raise ResourceValidationError(message=message)
 
             '''Check testbed value'''
-            testbeds = get_config("open-baton", "testbeds", config_path)
-            if (not properties["want_agent"]) and (not "testbed" in properties or (not properties["testbed"] in testbeds)) :
+            testbeds = TESTBED_MAPPING.keys()
+            # testbeds = get_config("open-baton", "testbeds", config_path)
+            if (not properties["want_agent"]) and (not "testbed" in properties or (not properties["testbed"] in testbeds)):
                 message = "testbed does not contain a valid value"
                 logger.info(message)
                 raise ResourceValidationError(message=message)
