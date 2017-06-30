@@ -1,8 +1,8 @@
 {
     "name":"NSD Security Firewall",
     "vendor":"Security Reply",
-    "version":"0.0.7",
-    "description":"NSD for the stress-test. Single VM",
+    "version":"1.0",
+    "description":"Single VM with Ubuntu and UFW configured",
     "vnfd":[
         {
             "id": "1678e26b-89f9-42cf-af66-f7e958905849"
