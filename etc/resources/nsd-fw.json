@@ -5,7 +5,7 @@
     "description":"NSD for the stress-test. Single VM",
     "vnfd":[
         {
-            "id": "b00db1c1-b81b-4dac-ab21-d0de9d3e7386"
+            "id": "1678e26b-89f9-42cf-af66-f7e958905849"
         }
     ]
 }

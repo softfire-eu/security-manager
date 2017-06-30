@@ -49,12 +49,18 @@ def deploy_package(path, project_id):
     vnfp = vnfp_agent.create(path)
 
     '''Create and upload the NSD'''
-    nsd_file_path = "etc/resources/nsd-fw.json"
+    #nsd_file_path = "etc/resources/nsd-fw.json"
+
+    remote_url = get_config("remote-files", "url", config_path)
+    r = requests.get("%s/nsd-fw.json" % remote_url)
+    nsd = json.loads(r.text)
 
     nsd_agent = agent.get_ns_descriptor_agent(project_id)
+    '''
     nsd = {}
     with open(nsd_file_path, "r") as fd:
         nsd = json.load(fd)
+    '''
     nsd["vnfd"] = [{"id": vnfp["id"]}]
     print(nsd)
     nsd = nsd_agent.create(json.dumps(nsd))
