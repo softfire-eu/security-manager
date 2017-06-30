@@ -80,8 +80,8 @@ class SecurityManager(AbstractManager):
                             raise ResourceValidationError(message=message)
 
             '''Check testbed value'''
-            testbeds = TESTBED_MAPPING.keys()
-            # testbeds = get_config("open-baton", "testbeds", config_path)
+            #testbeds = TESTBED_MAPPING.keys()
+            testbeds = get_config("open-baton", "testbeds", config_path)
             if (not properties["want_agent"]) and (
                 not "testbed" in properties or (not properties["testbed"] in testbeds)):
                 message = "testbed does not contain a valid value"
@@ -106,8 +106,11 @@ class SecurityManager(AbstractManager):
             # TODO check param name
             project_id = user_info.ob_project_id
             logger.debug("Got project id %s" % project_id)
+            default_project_id = get_config("open-baton", "default-project", config_path)
+            if project_id == "" :
+                project_id = default_project_id
         except Exception:
-            project_id = get_config("open-baton", "default-project", config_path)
+            project_id = default_project_id
         # Hardcoded to test interacion with Open baton. Should be sent by the experiment-manager
 
         logger.info("Requested provide_resources by user %s" % username)
@@ -252,6 +255,7 @@ class SecurityManager(AbstractManager):
                 tar.add('%s' % tmp_files_path, arcname='')
                 tar.close()
                 nsr_details = {}
+                logger.debug("Open Baton project_id: %s" % project_id)
                 try:
                     nsr_details = json.loads(deploy_package(path=tar_filename, project_id=project_id))
                     nsr_id = nsr_details["id"]
