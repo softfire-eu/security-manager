@@ -77,7 +77,7 @@ topology_template:
       properties:
         resource_id: firewall
         want_agent: false
-        testbed: os-locale
+        testbed: vim-instance-fokus
         default_rule: allow 
         denied_ips: [127.0.0.1]
         logging: true
@@ -89,4 +89,4 @@ topology_template:
         default_rule: allow
         denied_ips: [127.0.0.1, 172.20.30.2]
         logging: true
-        testbed: vim-instance-fokus-y2
+        testbed: vim-instance-fokus
