@@ -5,7 +5,7 @@
     "description":"Single VM with Ubuntu and UFW configured",
     "vnfd":[
         {
-            "id": "2f29d1d5-6d1f-473d-9de6-69d3489f1782"
+            "id": "a4dc131a-9cda-47e8-a2c5-ffb50fa205c9"
         }
     ]
 }

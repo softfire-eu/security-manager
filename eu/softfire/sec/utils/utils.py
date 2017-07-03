@@ -22,10 +22,12 @@ class UpdateStatusThread(Thread):
         while not self.stopped:
             time.sleep(int(self.manager.get_config_value('system', 'update-delay', '10')))
             if not self.stopped:
-                # try:
-                self.manager.send_update()
-                # except Exception as e:
-                #    logger.error("got error while updating resources: %s " % e.args)
+                try:
+                    self.manager.send_update()
+                except Exception as e:
+                    logger = get_logger(config_path)
+                    print("got error while updating resources: %s " % e)
+                    logger.error("got error while updating resources: %s " % e)
 
     def stop(self):
         self.stopped = True
