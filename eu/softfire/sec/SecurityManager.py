@@ -141,7 +141,7 @@ class SecurityManager(AbstractManager):
         tar.extractall(path=tmp_files_path)
         tar.close()
 
-        response = []
+        response = {}
         resource_id = properties["resource_id"]
         if resource_id == "firewall":
 
@@ -219,7 +219,8 @@ class SecurityManager(AbstractManager):
                 link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path),
                                                       get_config("api", "port", config_file_path=config_path),
                                                       random_id)
-                response.append(json.dumps({"log_dashboard_link": link}))
+                response["log_dashboard_link"] = link
+                #response.append(json.dumps({"log_dashboard_link": link}))
 
             tar = tarfile.open(name=tar_filename, mode='w')
 
@@ -232,7 +233,9 @@ class SecurityManager(AbstractManager):
                 link = "http://%s:%s/%s/%s" % (get_config("system", "ip", config_file_path=config_path),
                                                get_config("api", "port", config_file_path=config_path),
                                                properties["resource_id"], random_id)
-                response.append(json.dumps({"download_link": link}))
+                logger.debug(link)
+                response["download_link"] = link
+                #response.append(json.dumps({"download_link": link}))
             else:
                 # TODO add testbed to descriptor & change name/version to avoid conflicts
                 vnfd = {}
@@ -260,12 +263,13 @@ class SecurityManager(AbstractManager):
                     nsr_details = json.loads(deploy_package(path=tar_filename, project_id=project_id))
                     nsr_id = nsr_details["id"]
                     nsd_id = nsr_details["descriptor_reference"]
+                    response["NSR Details"] = nsr_details
                 except Exception:
                     message = "Error deploying the Package on Open Baton"
                     logger.error(message)
-                    response.append(json.dumps({"ERROR": message}))
+                    response["NSR Details"] = "ERROR: %s" % message
 
-                response.append(json.dumps(nsr_details))
+
                 # except Exception as e :
                 # TODO Fix
                 # logger.error(e)
@@ -284,7 +288,7 @@ class SecurityManager(AbstractManager):
         Return an array of JSON strings with information about the resources
         '''
         logger.debug("Responding %s" % json.dumps(response))
-        return response
+        return [json.dumps(response)]
 
     def _update_status(self) -> dict:
         logger.debug("Checking status update")
