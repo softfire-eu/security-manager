@@ -1,10 +1,15 @@
+import requests
+import shutil
+import sqlite3
+import tarfile
+
+import os
+import yaml
+from IPy import IP
 from sdk.softfire.manager import AbstractManager
 
-from IPy import IP
-from eu.softfire.sec.utils.utils import *
 from eu.softfire.sec.exceptions.exceptions import *
-import yaml, os
-import sqlite3, requests, tarfile, shutil
+from eu.softfire.sec.utils.utils import *
 
 logger = get_logger(config_path)
 ip_lists = ["allowed_ips", "denied_ips"]
@@ -80,10 +85,10 @@ class SecurityManager(AbstractManager):
                             raise ResourceValidationError(message=message)
 
             '''Check testbed value'''
-            #testbeds = TESTBED_MAPPING.keys()
-            testbeds = get_config("open-baton", "testbeds", config_path)
+            testbeds = TESTBED_MAPPING.keys()
+            # testbeds = get_config("open-baton", "testbeds", config_path)
             if (not properties["want_agent"]) and (
-                not "testbed" in properties or (not properties["testbed"] in testbeds)):
+                            not "testbed" in properties or (not properties["testbed"] in testbeds)):
                 message = "testbed does not contain a valid value"
                 logger.info(message)
                 raise ResourceValidationError(message=message)
@@ -107,7 +112,7 @@ class SecurityManager(AbstractManager):
             project_id = user_info.ob_project_id
             logger.debug("Got project id %s" % project_id)
             default_project_id = get_config("open-baton", "default-project", config_path)
-            if project_id == "" :
+            if project_id == "":
                 project_id = default_project_id
         except Exception:
             project_id = default_project_id
@@ -220,7 +225,7 @@ class SecurityManager(AbstractManager):
                                                       get_config("api", "port", config_file_path=config_path),
                                                       random_id)
                 response["log_dashboard_link"] = link
-                #response.append(json.dumps({"log_dashboard_link": link}))
+                # response.append(json.dumps({"log_dashboard_link": link}))
 
             tar = tarfile.open(name=tar_filename, mode='w')
 
@@ -235,7 +240,7 @@ class SecurityManager(AbstractManager):
                                                properties["resource_id"], random_id)
                 logger.debug(link)
                 response["download_link"] = link
-                #response.append(json.dumps({"download_link": link}))
+                # response.append(json.dumps({"download_link": link}))
             else:
                 # TODO add testbed to descriptor & change name/version to avoid conflicts
                 vnfd = {}
@@ -246,7 +251,8 @@ class SecurityManager(AbstractManager):
                 vnfd["type"] = vnfd["name"]
 
                 # TODO set vimInstance correctly. Check. Here to test
-                vnfd["vdu"][0]["vimInstanceName"] = [properties["testbed"]]
+                # vnfd["vdu"][0]["vimInstanceName"] = [properties["testbed"]]
+                vnfd["vdu"][0]["vimInstanceName"] = ["vim-instance-%s" % properties["testbed"]]
 
                 # TODO set network. To pe added also in the resource definition
 
@@ -270,9 +276,9 @@ class SecurityManager(AbstractManager):
                     response["NSR Details"] = "ERROR: %s" % message
 
 
-                # except Exception as e :
-                # TODO Fix
-                # logger.error(e)
+                    # except Exception as e :
+                    # TODO Fix
+                    # logger.error(e)
 
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
