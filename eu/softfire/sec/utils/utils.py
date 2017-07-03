@@ -28,6 +28,7 @@ class UpdateStatusThread(Thread):
                     logger = get_logger(config_path)
                     print("got error while updating resources: %s " % e)
                     logger.error("got error while updating resources: %s " % e)
+                    self.manager.send_update()
 
     def stop(self):
         self.stopped = True
