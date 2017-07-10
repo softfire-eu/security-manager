@@ -1,10 +1,15 @@
+import requests
+import shutil
+import sqlite3
+import tarfile
+
+import os
+import yaml
+from IPy import IP
 from sdk.softfire.manager import AbstractManager
 
-from IPy import IP
-from eu.softfire.sec.utils.utils import *
 from eu.softfire.sec.exceptions.exceptions import *
-import yaml, os
-import sqlite3, requests, tarfile, shutil
+from eu.softfire.sec.utils.utils import *
 
 logger = get_logger(config_path)
 ip_lists = ["allowed_ips", "denied_ips"]
@@ -83,7 +88,7 @@ class SecurityManager(AbstractManager):
             testbeds = TESTBED_MAPPING.keys()
             # testbeds = get_config("open-baton", "testbeds", config_path)
             if (not properties["want_agent"]) and (
-                not "testbed" in properties or (not properties["testbed"] in testbeds)):
+                            not "testbed" in properties or (not properties["testbed"] in testbeds)):
                 message = "testbed does not contain a valid value"
                 logger.info(message)
                 raise ResourceValidationError(message=message)
@@ -106,8 +111,11 @@ class SecurityManager(AbstractManager):
             # TODO check param name
             project_id = user_info.ob_project_id
             logger.debug("Got project id %s" % project_id)
+            default_project_id = get_config("open-baton", "default-project", config_path)
+            if project_id == "":
+                project_id = default_project_id
         except Exception:
-            project_id = get_config("open-baton", "default-project", config_path)
+            project_id = default_project_id
         # Hardcoded to test interacion with Open baton. Should be sent by the experiment-manager
 
         logger.info("Requested provide_resources by user %s" % username)
@@ -138,7 +146,7 @@ class SecurityManager(AbstractManager):
         tar.extractall(path=tmp_files_path)
         tar.close()
 
-        response = []
+        response = {}
         resource_id = properties["resource_id"]
         if resource_id == "firewall":
 
@@ -216,7 +224,8 @@ class SecurityManager(AbstractManager):
                 link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path),
                                                       get_config("api", "port", config_file_path=config_path),
                                                       random_id)
-                response.append(json.dumps({"log_dashboard_link": link}))
+                response["log_dashboard_link"] = link
+                # response.append(json.dumps({"log_dashboard_link": link}))
 
             tar = tarfile.open(name=tar_filename, mode='w')
 
@@ -229,7 +238,9 @@ class SecurityManager(AbstractManager):
                 link = "http://%s:%s/%s/%s" % (get_config("system", "ip", config_file_path=config_path),
                                                get_config("api", "port", config_file_path=config_path),
                                                properties["resource_id"], random_id)
-                response.append(json.dumps({"download_link": link}))
+                logger.debug(link)
+                response["download_link"] = link
+                # response.append(json.dumps({"download_link": link}))
             else:
                 # TODO add testbed to descriptor & change name/version to avoid conflicts
                 vnfd = {}
@@ -240,7 +251,8 @@ class SecurityManager(AbstractManager):
                 vnfd["type"] = vnfd["name"]
 
                 # TODO set vimInstance correctly. Check. Here to test
-                vnfd["vdu"][0]["vimInstanceName"] = [properties["testbed"]]
+                # vnfd["vdu"][0]["vimInstanceName"] = [properties["testbed"]]
+                vnfd["vdu"][0]["vimInstanceName"] = ["vim-instance-%s" % properties["testbed"]]
 
                 # TODO set network. To pe added also in the resource definition
 
@@ -252,19 +264,21 @@ class SecurityManager(AbstractManager):
                 tar.add('%s' % tmp_files_path, arcname='')
                 tar.close()
                 nsr_details = {}
+                logger.debug("Open Baton project_id: %s" % project_id)
                 try:
                     nsr_details = json.loads(deploy_package(path=tar_filename, project_id=project_id))
                     nsr_id = nsr_details["id"]
                     nsd_id = nsr_details["descriptor_reference"]
+                    response["NSR Details"] = nsr_details
                 except Exception:
                     message = "Error deploying the Package on Open Baton"
                     logger.error(message)
-                    response.append(json.dumps({"ERROR": message}))
+                    response["NSR Details"] = "ERROR: %s" % message
 
-                response.append(json.dumps(nsr_details))
-                # except Exception as e :
-                # TODO Fix
-                # logger.error(e)
+
+                    # except Exception as e :
+                    # TODO Fix
+                    # logger.error(e)
 
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
@@ -280,7 +294,7 @@ class SecurityManager(AbstractManager):
         Return an array of JSON strings with information about the resources
         '''
         logger.debug("Responding %s" % json.dumps(response))
-        return response
+        return [json.dumps(response)]
 
     def _update_status(self) -> dict:
         logger.debug("Checking status update")
