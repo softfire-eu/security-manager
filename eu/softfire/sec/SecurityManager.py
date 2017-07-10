@@ -273,6 +273,7 @@ class SecurityManager(AbstractManager):
                 except Exception:
                     message = "Error deploying the Package on Open Baton"
                     logger.error(message)
+                    nsr_id = "ERROR"
                     response["NSR Details"] = "ERROR: %s" % message
 
 
@@ -297,6 +298,7 @@ class SecurityManager(AbstractManager):
         return [json.dumps(response)]
 
     def _update_status(self) -> dict:
+        #logger = get_logger(config_path)
         logger.debug("Checking status update")
         result = {}
         conn = sqlite3.connect(self.resources_db)
@@ -334,6 +336,9 @@ class SecurityManager(AbstractManager):
                                                get_config("api", "port", config_file_path=config_path), resource_id,
                                                random_id)
                 s["download_link"] = link
+
+            elif nsr_id == "ERROR" :
+                s["status"] = "Error deploying the Package on Open Baton"
 
             else:
                 '''Open Baton resource'''
@@ -387,7 +392,7 @@ class SecurityManager(AbstractManager):
         res = cur.execute(query)
         rows = res.fetchall()
         for r in rows:
-            if r["nsr_id"] != "":
+            if r["nsr_id"] != "" and r["nsr_id"] != "ERROR":
                 try:
                     delete_ns(nsr_id=r["nsr_id"], nsd_id=r["nsd_id"], project_id=r["project_id"])
                 except Exception:
