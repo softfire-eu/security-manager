@@ -11,7 +11,7 @@ from sdk.softfire.manager import AbstractManager
 from eu.softfire.sec.exceptions.exceptions import *
 from eu.softfire.sec.utils.utils import *
 
-logger = get_logger(config_path)
+logger = get_logger(config_path, __name__)
 ip_lists = ["allowed_ips", "denied_ips"]
 
 
@@ -301,17 +301,21 @@ class SecurityManager(AbstractManager):
         #logger = get_logger(config_path)
         logger.debug("Checking status update")
         result = {}
-        conn = sqlite3.connect(self.resources_db)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
-
-        query = "SELECT * FROM resources"
-        res = cur.execute(query)
-        rows = res.fetchall()
+        try :
+            conn = sqlite3.connect(self.resources_db)
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            query = "SELECT * FROM resources"
+            res = cur.execute(query)
+            rows = res.fetchall()
+        except Exception :
+            logger.error("Problem reading the Resources DB")
+            conn.close()
+            return result
 
         for r in rows:
             s = {}
-            '''nsr_id e project_id could be empty with want_agent'''
+            '''nsr_id and project_id could be empty with want_agent'''
             nsr_id = r["nsr_id"]
             project_id = r["project_id"]
             username = r["username"]
