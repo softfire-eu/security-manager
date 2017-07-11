@@ -354,7 +354,7 @@ class SecurityManager(AbstractManager):
 
                     s["status"] = ob_resp["status"]
                 except Exception as e:
-                    logger.error("Error contacting Open Baton to validate resource nsr_id: %s\n%s" % (nsr_id, e))
+                    logger.error("Error contacting Open Baton to check resource status, nsr_id: %s\n%s" % (nsr_id, e))
                     s["status"] = "ERROR checking status"
 
                 print(s)
