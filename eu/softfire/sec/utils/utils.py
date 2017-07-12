@@ -25,7 +25,7 @@ class UpdateStatusThread(Thread):
                 try:
                     self.manager.send_update()
                 except Exception as e:
-                    logger = get_logger(config_path)
+                    logger = get_logger(config_path, __name__)
                     print("got error while updating resources: %s " % e)
                     logger.error("got error while updating resources: %s " % e)
                     self.manager.send_update()
@@ -34,9 +34,9 @@ class UpdateStatusThread(Thread):
         self.stopped = True
 
 
-def get_logger(config_path):
+def get_logger(config_path, name):
     logging.config.fileConfig(config_path)
-    return logging.getLogger("security-manager")
+    return logging.getLogger(name)
 
 
 def random_string(size):
