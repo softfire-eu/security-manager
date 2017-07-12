@@ -2,8 +2,7 @@ import requests
 import shutil
 import sqlite3
 import tarfile
-
-import os
+from multiprocessing.pool import ThreadPool
 import yaml
 from IPy import IP
 from sdk.softfire.manager import AbstractManager
@@ -20,6 +19,7 @@ class SecurityManager(AbstractManager):
         super(SecurityManager, self).__init__(config_path)
         self.local_files_path = self.get_config_value("local-files", "path", "/etc/softfire/security-manager")
         self.resources_db = '%s/security-manager.db' % self.local_files_path
+
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS elastic_indexes (username, elastic_index, dashboard_id)''')
@@ -194,7 +194,10 @@ class SecurityManager(AbstractManager):
                     elastic_index = random_string(15)
                     dashboard_id = random_string(15)
                     try:
-                        create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id)
+
+                        async_result = pool.apply_async(create_kibana_dashboard, (elastic_index,dashboard_path, dashboard_id))
+                        async_result.get(10)
+                        pool.close()
                     except Exception:
                         dashboard_id = ""
                     query = "INSERT INTO elastic_indexes (username, elastic_index, dashboard_id) VALUES ('%s', '%s', '%s')" % \
@@ -250,9 +253,16 @@ class SecurityManager(AbstractManager):
                 vnfd["name"] += ("-%s" % random_id)
                 vnfd["type"] = vnfd["name"]
 
-                # TODO set vimInstance correctly. Check. Here to test
-                # vnfd["vdu"][0]["vimInstanceName"] = [properties["testbed"]]
                 vnfd["vdu"][0]["vimInstanceName"] = ["vim-instance-%s" % properties["testbed"]]
+
+                '''
+                
+                vnfd["vdu"][0]["vm_image"][0] = properties["os_image_name"]
+                
+                '''
+                if "lan_name" in properties :
+                    vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"] = properties["lan_name"]
+                    vnfd["virtual_link"][0]["name"] = properties["lan_name"]
 
                 # TODO set network. To pe added also in the resource definition
 
@@ -266,20 +276,20 @@ class SecurityManager(AbstractManager):
                 nsr_details = {}
                 logger.debug("Open Baton project_id: %s" % project_id)
                 try:
-                    nsr_details = json.loads(deploy_package(path=tar_filename, project_id=project_id))
+                    pool = ThreadPool(processes=1)
+                    async_result = pool.apply_async(deploy_package, (tar_filename, project_id))
+                    return_val = async_result.get(10)
+                    pool.close()
+                    nsr_details = json.loads(return_val)
                     nsr_id = nsr_details["id"]
                     nsd_id = nsr_details["descriptor_reference"]
                     response["NSR Details"] = nsr_details
-                except Exception:
-                    message = "Error deploying the Package on Open Baton"
+                except Exception as e :
+                    message = "Error deploying the Package on Open Baton: %s" % e
                     logger.error(message)
                     nsr_id = "ERROR"
                     response["NSR Details"] = "ERROR: %s" % message
 
-
-                    # except Exception as e :
-                    # TODO Fix
-                    # logger.error(e)
 
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
@@ -308,8 +318,8 @@ class SecurityManager(AbstractManager):
             query = "SELECT * FROM resources"
             res = cur.execute(query)
             rows = res.fetchall()
-        except Exception :
-            logger.error("Problem reading the Resources DB")
+        except Exception as e :
+            logger.error("Problem reading the Resources DB: %s" % e)
             conn.close()
             return result
 
@@ -330,9 +340,12 @@ class SecurityManager(AbstractManager):
                                                       random_id)
                 s["dashboard_log_link"] = link
                 try:
-                    push_kibana_index(elastic_index)
-                except Exception:
-                    logger.error("Problem contacting the log collector")
+                    pool = ThreadPool(processes=1)
+                    async_result = pool.apply_async(push_kibana_index, (elastic_index,))
+                    async_result.get(5)
+                    pool.close()
+                except Exception as e:
+                    logger.error("Problem contacting the log collector: %s" % e)
                     s["dashboard_log_link"] = "ERROR"
 
             if nsr_id == "":
@@ -399,8 +412,8 @@ class SecurityManager(AbstractManager):
             if r["nsr_id"] != "" and r["nsr_id"] != "ERROR":
                 try:
                     delete_ns(nsr_id=r["nsr_id"], nsd_id=r["nsd_id"], project_id=r["project_id"])
-                except Exception:
-                    logger.error("Problem contacting Open Baton")
+                except Exception as e:
+                    logger.error("Problem contacting Open Baton: " % e)
 
             file_path = "%s/tmp/%s" % (self.local_files_path, r["random_id"])
             try:
