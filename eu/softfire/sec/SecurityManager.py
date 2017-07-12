@@ -2,10 +2,10 @@ import requests
 import shutil
 import sqlite3
 import tarfile
-from multiprocessing.pool import ThreadPool
 import yaml
 from IPy import IP
 from sdk.softfire.manager import AbstractManager
+from concurrent.futures import ThreadPoolExecutor
 
 from eu.softfire.sec.exceptions.exceptions import *
 from eu.softfire.sec.utils.utils import *
@@ -194,10 +194,9 @@ class SecurityManager(AbstractManager):
                     elastic_index = random_string(15)
                     dashboard_id = random_string(15)
                     try:
-                        pool = ThreadPool(processes=1)
-                        async_result = pool.apply_async(create_kibana_dashboard, (elastic_index,dashboard_path, dashboard_id))
-                        async_result.get(10)
-                        pool.close()
+                        with ThreadPoolExecutor(max_workers=1) as executor :
+                            future = executor.submit(create_kibana_dashboard, elastic_index,dashboard_path, dashboard_id)
+                            future.result(10)
                     except Exception:
                         dashboard_id = ""
                     query = "INSERT INTO elastic_indexes (username, elastic_index, dashboard_id) VALUES ('%s', '%s', '%s')" % \
@@ -276,10 +275,9 @@ class SecurityManager(AbstractManager):
                 nsr_details = {}
                 logger.debug("Open Baton project_id: %s" % project_id)
                 try:
-                    pool = ThreadPool(processes=1)
-                    async_result = pool.apply_async(deploy_package, (tar_filename, project_id))
-                    return_val = async_result.get(10)
-                    pool.close()
+                    with ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(deploy_package, tar_filename, project_id)
+                        return_val = future.result(20)
                     nsr_details = json.loads(return_val)
                     nsr_id = nsr_details["id"]
                     nsd_id = nsr_details["descriptor_reference"]
@@ -340,10 +338,10 @@ class SecurityManager(AbstractManager):
                                                       random_id)
                 s["dashboard_log_link"] = link
                 try:
-                    pool = ThreadPool(processes=1)
-                    async_result = pool.apply_async(push_kibana_index, (elastic_index,))
-                    async_result.get(5)
-                    pool.close()
+                    with ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(push_kibana_index, elastic_index)
+                        future.result(5)
+
                 except Exception as e:
                     logger.error("Problem contacting the log collector: %s" % e)
                     s["dashboard_log_link"] = "ERROR"
