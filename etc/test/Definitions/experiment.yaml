@@ -57,6 +57,9 @@ node_types:
       want_agent:
         required: true
         type: boolean
+      lan_name: 
+        required: false
+        type: string
   eu.softfire.BaseResource:
     derived_from: tosca.nodes.Root
     properties:
@@ -77,6 +80,7 @@ topology_template:
       properties:
         resource_id: firewall
         want_agent: false
+        lan_name: private
         testbed: fokus
         default_rule: allow 
         denied_ips: [172.20.10.138]
