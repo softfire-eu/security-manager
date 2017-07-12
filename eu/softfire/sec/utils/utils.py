@@ -131,7 +131,7 @@ def push_kibana_index(elastic_index):
 
 
 def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id):
-    logger = get_logger(config_path)
+    logger = get_logger(config_path, __name__)
 
     logger.debug("Start creating dashboard")
     collector_ip = get_config("log-collector", "ip", config_path)

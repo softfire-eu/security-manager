@@ -198,7 +198,8 @@ class SecurityManager(AbstractManager):
                         with ThreadPoolExecutor(max_workers=1) as executor :
                             future = executor.submit(create_kibana_dashboard, elastic_index,dashboard_path, dashboard_id)
                             future.result(10)
-                    except Exception:
+                    except Exception as e:
+                        logger.error("Error creating Kibana dashboard: %s" % e)
                         dashboard_id = ""
                     query = "INSERT INTO elastic_indexes (username, elastic_index, dashboard_id) VALUES ('%s', '%s', '%s')" % \
                             (username, elastic_index, dashboard_id)
