@@ -24,7 +24,7 @@ class SecurityManager(AbstractManager):
         cur = conn.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS elastic_indexes (username, elastic_index, dashboard_id)''')
         cur.execute(
-            '''CREATE TABLE IF NOT EXISTS resources (username, resource_id, project_id, nsr_id, nsd_id, random_id, elastic_index)''')
+            '''CREATE TABLE IF NOT EXISTS resources (username, resource_id, project_id, nsr_id, nsd_id, random_id)''')
 
         conn.commit()
         conn.close()
@@ -137,6 +137,7 @@ class SecurityManager(AbstractManager):
         scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
         tar_filename = "%s/%s.tar" % (tmp_files_path, properties["resource_id"])
 
+        print(scripts_url)
         r = requests.get(scripts_url, stream=True)
         with open(tar_filename, 'wb') as fd:
             for chunk in r.iter_content(chunk_size=128):
@@ -244,7 +245,6 @@ class SecurityManager(AbstractManager):
                 response["download_link"] = link
                 # response.append(json.dumps({"download_link": link}))
             else:
-                # TODO add testbed to descriptor & change name/version to avoid conflicts
                 vnfd = {}
                 with open("%s/vnfd.json" % tmp_files_path, "r") as fd:
                     vnfd = json.loads(fd.read())
@@ -313,7 +313,7 @@ class SecurityManager(AbstractManager):
             conn = sqlite3.connect(self.resources_db)
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
-            query = "SELECT * FROM resources"
+            query = "SELECT * FROM resources AS r JOIN elastic_indexes AS e ON r.username = e.username"
             res = cur.execute(query)
             rows = res.fetchall()
         except Exception as e :
@@ -324,12 +324,12 @@ class SecurityManager(AbstractManager):
         for r in rows:
             s = {}
             '''nsr_id and project_id could be empty with want_agent'''
-            nsr_id = r["nsr_id"]
-            project_id = r["project_id"]
-            username = r["username"]
-            elastic_index = r["elastic_index"]
-            random_id = r["random_id"]
-            resource_id = r["resource_id"]
+            nsr_id = r["r.nsr_id"]
+            project_id = r["r.project_id"]
+            username = r["r.username"]
+            elastic_index = r["e.elastic_index"]
+            random_id = r["r.random_id"]
+            resource_id = r["r.resource_id"]
 
             '''Repush index-pattern'''
             if elastic_index != "":
@@ -422,8 +422,6 @@ class SecurityManager(AbstractManager):
         query = "DELETE FROM resources WHERE username = '%s'" % username
         cur.execute(query)
 
-        # query = "DELETE FROM elastic_indexes WHERE username = '%s'" % username
-        cur.execute(query)
         conn.commit()
         conn.close()
 
