@@ -137,6 +137,7 @@ class SecurityManager(AbstractManager):
         scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
         tar_filename = "%s/%s.tar" % (tmp_files_path, properties["resource_id"])
 
+
         r = requests.get(scripts_url, stream=True)
         with open(tar_filename, 'wb') as fd:
             for chunk in r.iter_content(chunk_size=128):
