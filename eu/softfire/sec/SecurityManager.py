@@ -194,7 +194,7 @@ class SecurityManager(AbstractManager):
                     elastic_index = random_string(15)
                     dashboard_id = random_string(15)
                     try:
-
+                        pool = ThreadPool(processes=1)
                         async_result = pool.apply_async(create_kibana_dashboard, (elastic_index,dashboard_path, dashboard_id))
                         async_result.get(10)
                         pool.close()
