@@ -29,7 +29,9 @@ setup(
         'openbaton-cli',
         'PyYAML',
         'requests',
-        'softfire-sdk'
+        'softfire-sdk',
+        'bottle',
+        'beaker',
         ],
     long_description=read('README.md'),
     classifiers=[
