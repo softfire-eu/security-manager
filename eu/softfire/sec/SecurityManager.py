@@ -279,13 +279,13 @@ class SecurityManager(AbstractManager):
                 try:
                     with ThreadPoolExecutor(max_workers=1) as executor:
                         future = executor.submit(deploy_package, tar_filename, project_id)
-                        return_val = future.result(20)
+                        return_val = future.result(60)
                     nsr_details = json.loads(return_val)
                     nsr_id = nsr_details["id"]
                     nsd_id = nsr_details["descriptor_reference"]
                     response["NSR Details"] = nsr_details
                 except Exception as e :
-                    message = "Error deploying the Package on Open Baton: %s" % e
+                    message = "Error deploying the Package on Open Baton: %s" % type(e)
                     logger.error(message)
                     nsr_id = "ERROR"
                     response["NSR Details"] = "ERROR: %s" % message
