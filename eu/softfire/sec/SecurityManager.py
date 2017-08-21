@@ -137,7 +137,7 @@ class SecurityManager(AbstractManager):
         scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
         tar_filename = "%s/%s.tar" % (tmp_files_path, properties["resource_id"])
 
-        print(scripts_url)
+
         r = requests.get(scripts_url, stream=True)
         with open(tar_filename, 'wb') as fd:
             for chunk in r.iter_content(chunk_size=128):
@@ -198,7 +198,8 @@ class SecurityManager(AbstractManager):
                         with ThreadPoolExecutor(max_workers=1) as executor :
                             future = executor.submit(create_kibana_dashboard, elastic_index,dashboard_path, dashboard_id)
                             future.result(10)
-                    except Exception:
+                    except Exception as e:
+                        logger.error("Error creating Kibana dashboard: %s" % e)
                         dashboard_id = ""
                     query = "INSERT INTO elastic_indexes (username, elastic_index, dashboard_id) VALUES ('%s', '%s', '%s')" % \
                             (username, elastic_index, dashboard_id)
@@ -277,13 +278,13 @@ class SecurityManager(AbstractManager):
                 try:
                     with ThreadPoolExecutor(max_workers=1) as executor:
                         future = executor.submit(deploy_package, tar_filename, project_id)
-                        return_val = future.result(20)
+                        return_val = future.result(60)
                     nsr_details = json.loads(return_val)
                     nsr_id = nsr_details["id"]
                     nsd_id = nsr_details["descriptor_reference"]
                     response["NSR Details"] = nsr_details
                 except Exception as e :
-                    message = "Error deploying the Package on Open Baton: %s" % e
+                    message = "Error deploying the Package on Open Baton: %s" % type(e)
                     logger.error(message)
                     nsr_id = "ERROR"
                     response["NSR Details"] = "ERROR: %s" % message
