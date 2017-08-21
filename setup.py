@@ -26,6 +26,8 @@ setup(
     scripts=["security-manager"],
     install_requires=[
         'IPy',
+        'keystoneauth',
+        'python-neutronclient',
         'openbaton-cli',
         'PyYAML',
         'requests',

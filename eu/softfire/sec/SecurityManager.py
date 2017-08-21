@@ -1,11 +1,13 @@
 import requests
-import shutil
+import shutil, sys, traceback
 import sqlite3
 import tarfile
 import yaml
 from IPy import IP
 from sdk.softfire.manager import AbstractManager
 from concurrent.futures import ThreadPoolExecutor
+
+from neutronclient.v2_0 import client as neutron_client
 
 from eu.softfire.sec.exceptions.exceptions import *
 from eu.softfire.sec.utils.utils import *
@@ -24,7 +26,7 @@ class SecurityManager(AbstractManager):
         cur = conn.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS elastic_indexes (username, elastic_index, dashboard_id)''')
         cur.execute(
-            '''CREATE TABLE IF NOT EXISTS resources (username, resource_id, project_id, nsr_id, nsd_id, random_id)''')
+            '''CREATE TABLE IF NOT EXISTS resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, os_project_id, os_instance_id, to_update, disable_port_security)''')
 
         conn.commit()
         conn.close()
@@ -37,6 +39,7 @@ class SecurityManager(AbstractManager):
 
     def list_resources(self, user_info=None, payload=None):
         logger.debug("List resources")
+
         resource_id = "firewall"
         description = "This resource permits to deploy a firewall. You can deploy it as a standalone VM, " \
                       "or you can use it as an agent directly installed on the machine that you want to protect. " \
@@ -45,10 +48,26 @@ class SecurityManager(AbstractManager):
         cardinality = -1
         testbed = messages_pb2.ANY
         node_type = "SecurityResource"
-        result = []
-        result.append(
-            messages_pb2.ResourceMetadata(resource_id=resource_id, description=description, cardinality=cardinality,
-                                          node_type=node_type, testbed=testbed))
+        fw = messages_pb2.ResourceMetadata(resource_id=resource_id, description=description, cardinality=cardinality,
+                                      node_type=node_type, testbed=testbed)
+
+        resource_id = "suricata"
+        description = "This resource permits to deploy a Suricata NIPS. You can deploy it as a standalone VM, " \
+                      "or you can use it as an agent directly installed on the machine that you want to protect. " \
+                      "This resource offers the functionalities of Suricata NIPS (https://suricata-ids.org/).\nMore information at http://docs.softfire.eu/security-manager/"
+        suricata = messages_pb2.ResourceMetadata(resource_id=resource_id, description=description, cardinality=cardinality,
+                                           node_type=node_type, testbed=testbed)
+
+        resource_id = "pfsense"
+        description = "This resource permits to deploy a pfSense VM."\
+                      "This resource offers the functionalities of pfSense (https://www.pfsense.org/), and " \
+                      "can be configured by means of a Rest API provided by FauxAPI package (https://github.com/ndejong/pfsense_fauxapi)." \
+                      "\nMore information at http://docs.softfire.eu/security-manager/"
+
+        pfsense = messages_pb2.ResourceMetadata(resource_id=resource_id, description=description,
+                                                 cardinality=cardinality,
+                                                 node_type=node_type, testbed=testbed)
+        result = [fw, suricata, pfsense]
         return result
 
     def validate_resources(self, user_info=None, payload=None) -> None:
@@ -95,6 +114,12 @@ class SecurityManager(AbstractManager):
 
             return
 
+        if properties["resource_id"] == "suricata":
+            pass
+
+        if properties["resource_id"] == "pfsense":
+            pass
+
     def provide_resources(self, user_info, payload=None):
         logger.debug("user_info: type: %s, %s" % (type(user_info), user_info))
         logger.debug("payload: %s" % payload)
@@ -109,21 +134,22 @@ class SecurityManager(AbstractManager):
         # TODO REMOVE
         try:
             # TODO check param name
-            project_id = user_info.ob_project_id
-            logger.debug("Got project id %s" % project_id)
+            ob_project_id = user_info.ob_project_id
+            logger.debug("Got Open Baton project id %s" % ob_project_id)
             default_project_id = get_config("open-baton", "default-project", config_path)
-            if project_id == "":
-                project_id = default_project_id
+            if ob_project_id == "":
+                ob_project_id = default_project_id
         except Exception:
-            project_id = default_project_id
+            ob_project_id = default_project_id
         # Hardcoded to test interacion with Open baton. Should be sent by the experiment-manager
 
         logger.info("Requested provide_resources by user %s" % username)
 
+        open_baton = OBClient(ob_project_id)
         nsr_id = ""
-
         nsd_id = ""
-
+        os_project_id = ""
+        os_instance_id = ""
         random_id = random_string(15)
 
         tmp_files_path = "%s/tmp/%s" % (self.local_files_path, random_id)
@@ -136,7 +162,6 @@ class SecurityManager(AbstractManager):
         '''Download scripts from remote Repository'''
         scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
         tar_filename = "%s/%s.tar" % (tmp_files_path, properties["resource_id"])
-
 
         r = requests.get(scripts_url, stream=True)
         with open(tar_filename, 'wb') as fd:
@@ -219,9 +244,10 @@ class SecurityManager(AbstractManager):
                 with open(rsyslog_conf) as fd_old:
                     for line in fd_old:
                         conf += line.replace("test", elastic_index)
-                conf += '''\nif ($msg contains "[UFW ") then { 
-                action(type="omfwd" target="%s" port="%s" template="softfireFormat")
-                }\n''' % (collector_ip, logstash_port)
+                        conf += line.replace("#", "").replace('target=""', 'target="%s"' % collector_ip).replace('port=""', 'port="%s"' % logstash_port)
+#                conf += '''\nif ($msg contains "[UFW ") then {
+#                action(type="omfwd" target="%s" port="%s" template="softfireFormat")
+#                }\n''' % (collector_ip, logstash_port)
                 with open(rsyslog_conf, "w") as fd_new:
                     fd_new.write(conf)
 
@@ -244,6 +270,9 @@ class SecurityManager(AbstractManager):
                                                properties["resource_id"], random_id)
                 logger.debug(link)
                 response["download_link"] = link
+
+                update = False
+                disable_port_security = False
                 # response.append(json.dumps({"download_link": link}))
             else:
                 vnfd = {}
@@ -264,7 +293,13 @@ class SecurityManager(AbstractManager):
                     vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"] = properties["lan_name"]
                     vnfd["virtual_link"][0]["name"] = properties["lan_name"]
 
-                # TODO set network. To pe added also in the resource definition
+                body = {}
+
+                if "ssh_pub_key" in properties :
+                    key_name = "securityResourceKey"
+                    open_baton.import_key(properties["ssh_pub_key"], key_name)
+                    body = {"keys" : [ key_name ]}
+
 
                 logger.debug(vnfd["name"])
                 logger.debug("Prepared VNFD: %s" % vnfd)
@@ -274,26 +309,33 @@ class SecurityManager(AbstractManager):
                 tar.add('%s' % tmp_files_path, arcname='')
                 tar.close()
                 nsr_details = {}
-                logger.debug("Open Baton project_id: %s" % project_id)
+                logger.debug("Open Baton project_id: %s" % ob_project_id)
                 try:
                     with ThreadPoolExecutor(max_workers=1) as executor:
-                        future = executor.submit(deploy_package, tar_filename, project_id)
+                        future = executor.submit(open_baton.deploy_package, tar_filename, body, resource_id)
                         return_val = future.result(60)
                     nsr_details = json.loads(return_val)
                     nsr_id = nsr_details["id"]
                     nsd_id = nsr_details["descriptor_reference"]
                     response["NSR Details"] = nsr_details
+                    update = True
+                    disable_port_security = True
+
                 except Exception as e :
-                    message = "Error deploying the Package on Open Baton: %s" % type(e)
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    traceback.print_tb(exc_traceback)
+                    message = "Error deploying the Package on Open Baton: %s" % e
                     logger.error(message)
                     nsr_id = "ERROR"
+                    update = False
+                    disable_port_security = False
                     response["NSR Details"] = "ERROR: %s" % message
 
 
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
-        query = "INSERT INTO resources (username, resource_id, project_id, nsr_id, nsd_id, random_id, elastic_index) VALUES ('%s',  '%s', '%s', '%s', '%s', '%s', '%s')" % \
-                (username, resource_id, project_id, nsr_id, nsd_id, random_id, elastic_index)
+        query = "INSERT INTO resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, to_update, disable_port_security) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % \
+                (username, resource_id, properties["testbed"], ob_project_id, nsr_id, nsd_id, random_id, update, disable_port_security)
         logger.debug("Executing %s" % query)
 
         cur.execute(query)
@@ -314,7 +356,7 @@ class SecurityManager(AbstractManager):
             conn = sqlite3.connect(self.resources_db)
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
-            query = "SELECT * FROM resources AS r JOIN elastic_indexes AS e ON r.username = e.username"
+            query = "SELECT * FROM resources AS r JOIN elastic_indexes AS e ON r.username = e.username WHERE r.to_update='True'"
             res = cur.execute(query)
             rows = res.fetchall()
         except Exception as e :
@@ -324,13 +366,17 @@ class SecurityManager(AbstractManager):
 
         for r in rows:
             s = {}
-            '''nsr_id and project_id could be empty with want_agent'''
-            nsr_id = r["r.nsr_id"]
-            project_id = r["r.project_id"]
-            username = r["r.username"]
-            elastic_index = r["e.elastic_index"]
-            random_id = r["r.random_id"]
-            resource_id = r["r.resource_id"]
+            '''nsr_id and ob_project_id could be empty with want_agent'''
+            nsr_id = r["ob_nsr_id"]
+            ob_project_id = r["ob_project_id"]
+            testbed = r["testbed"]
+            os_project_id = r["os_project_id"]
+            os_instance_id = r["os_instance_id"]
+            disable_port_security = r["disable_port_security"]
+            username = r["username"]
+            elastic_index = r["elastic_index"]
+            random_id = r["random_id"]
+            resource_id = r["resource_id"]
 
             '''Repush index-pattern'''
             if elastic_index != "":
@@ -361,25 +407,64 @@ class SecurityManager(AbstractManager):
                 logger.debug("Checking resource nsr_id: %s" % nsr_id)
 
                 try:
-                    agent = ob_login(project_id)
-                    nsr_agent = agent.get_ns_records_agent(project_id=project_id)
+                    open_baton = OBClient(ob_project_id)
+                    agent = open_baton.agent
+                    nsr_agent = agent.get_ns_records_agent(project_id=ob_project_id)
                     ob_resp = nsr_agent.find(nsr_id)
                     time.sleep(5)
-                    ob_resp = json.loads(ob_resp)
-                    logger.debug(ob_resp)
+                    nsr_details = json.loads(ob_resp)
+                    logger.debug(nsr_details)
 
-                    s["status"] = ob_resp["status"]
+                    s["status"] = nsr_details["status"]
+
+
+                    """Disable port security on VM's ports"""
+                    if disable_port_security == "True":
+                        logger.debug("Trying to disable port security on VM")
+                        print(nsr_details)
+
+                        # TODO delete
+                        os_project_id = "4ba2740884e745879b5e48e34546ecd1" #ericsson test
+                        # os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[properties["testbed"]]]
+                        sess = openstack_login(testbed, os_project_id)
+
+                        # nova = nova_client.Client(session=sess)
+                        neutron = neutron_client.Client(session=sess)
+                        # glance = glance_client.Client(2, session=sess)
+
+                        for vnfr in nsr_details["vnfr"]:
+
+                            for vdu in vnfr["vdu"]:
+                                for vnfc_instance in vdu["vnfc_instance"]:
+                                    MY_SERVER_ID = vnfc_instance["vc_id"]
+                                    logger.debug("Trying to disable port security on VM with UUID: %s" % MY_SERVER_ID)
+                                    MY_SERVER_ID = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
+
+                                    interface_list = neutron.list_ports(device_id=MY_SERVER_ID)["ports"]
+                                    for i in interface_list:
+                                        print(i)
+                                        ret = neutron.update_port(i["id"], {"port":{"port_security_enabled": False, "security_groups" : []}})
+                                        logger.debug(ret)
+                                        disable_port_security = "False"
+                        query = "UPDATE resources SET disable_port_security = '%s' WHERE username = '%s' AND ob_nsr_id = '%s'" \
+                                % (disable_port_security, username, nsr_id)
+                        execute_query(self.resources_db, query)
+
                 except Exception as e:
                     logger.error("Error contacting Open Baton to check resource status, nsr_id: %s\n%s" % (nsr_id, e))
                     s["status"] = "ERROR checking status"
 
                 print(s)
                 if s["status"] == "ACTIVE":
-                    s["ip"] = ob_resp["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]["ip"]
+                    s["ip"] = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]["ip"]
                     s["api_url"] = "http://%s:5000" % s["ip"]
                     try:
                         api_resp = requests.get(s["api_url"])
                         logger.debug(api_resp)
+                        """Update DB entry to stop sending update"""
+                        query = "UPDATE resources SET to_disable_port_security='False' WHERE ob_nsr_id='%s' AND username='%s'" \
+                            % (nsr_id, username)
+                        execute_query(self.resources_db, query)
                     except Exception:
                         s["status"] == "VM is running but API are unavailable"
 
@@ -408,9 +493,10 @@ class SecurityManager(AbstractManager):
         res = cur.execute(query)
         rows = res.fetchall()
         for r in rows:
-            if r["nsr_id"] != "" and r["nsr_id"] != "ERROR":
+            if r["ob_nsr_id"] != "" and r["ob_nsr_id"] != "ERROR":
                 try:
-                    delete_ns(nsr_id=r["nsr_id"], nsd_id=r["nsd_id"], project_id=r["project_id"])
+                    open_baton = OBClient(r["ob_project_id"])
+                    open_baton.delete_ns(nsr_id=r["ob_nsr_id"], nsd_id=r["ob_nsd_id"])
                 except Exception as e:
                     logger.error("Problem contacting Open Baton: " % e)
 
