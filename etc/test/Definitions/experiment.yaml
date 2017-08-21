@@ -81,9 +81,9 @@ topology_template:
         resource_id: firewall
         want_agent: false
         lan_name: private
-        testbed: fokus
+        testbed: ericsson
         default_rule: allow 
-        denied_ips: [172.20.10.138]
+        denied_ips: [172.20.10.100]
         logging: true
 #    fr:
 #      type: SecurityResource
