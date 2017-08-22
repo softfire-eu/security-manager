@@ -45,8 +45,7 @@ def get_logger(config_path, name):
 def random_string(size):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(size))
 
-
-def deploy_package(path, project_id):
+def deploy_package(path, project_id, body={}):
     '''Open Baton Login'''
     agent = ob_login(project_id)
 
@@ -73,7 +72,7 @@ def deploy_package(path, project_id):
 
     '''Deploy of the NSR'''
     nsr_agent = agent.get_ns_records_agent(project_id=project_id)
-    nsr = nsr_agent.create(entity=nsd["id"])
+    nsr = nsr_agent.create(nsd["id"], json.dumps(body))
 
     nsr_details = nsr_agent.find(nsr["id"])
 
@@ -101,6 +100,17 @@ def ob_login(project_id):
                                   https=(ob_conf["https"] == "True"), version=int(ob_conf["version"]),
                                   username=ob_conf["username"], password=ob_conf["password"], project_id=project_id)
     return agent
+
+def ob_import_key(project_id, ssh_pub_key, name):
+    agent = ob_login(project_id)
+    key_agent = agent.get_key_agent(project_id)
+    for key in json.loads(key_agent.find()):
+        print(key)
+        if key.get('name') == name:
+            key_agent.delete(key.get('id'))
+            break
+
+    key_agent.create(json.dumps({"name": name, "projectId": project_id, "publicKey": ssh_pub_key}))
 
 
 def add_rule_to_fw(fd, rule):

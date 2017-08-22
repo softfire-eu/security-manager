@@ -39,6 +39,7 @@ class SecurityManager(AbstractManager):
 
     def list_resources(self, user_info=None, payload=None):
         logger.debug("List resources")
+
         resource_id = "firewall"
         description = "This resource permits to deploy a firewall. You can deploy it as a standalone VM, " \
                       "or you can use it as an agent directly installed on the machine that you want to protect. " \
@@ -47,10 +48,26 @@ class SecurityManager(AbstractManager):
         cardinality = -1
         testbed = messages_pb2.ANY
         node_type = "SecurityResource"
-        result = []
-        result.append(
-            messages_pb2.ResourceMetadata(resource_id=resource_id, description=description, cardinality=cardinality,
-                                          node_type=node_type, testbed=testbed))
+        fw = messages_pb2.ResourceMetadata(resource_id=resource_id, description=description, cardinality=cardinality,
+                                      node_type=node_type, testbed=testbed)
+
+        resource_id = "suricata"
+        description = "This resource permits to deploy a Suricata NIPS. You can deploy it as a standalone VM, " \
+                      "or you can use it as an agent directly installed on the machine that you want to protect. " \
+                      "This resource offers the functionalities of Suricata NIPS (https://suricata-ids.org/).\nMore information at http://docs.softfire.eu/security-manager/"
+        suricata = messages_pb2.ResourceMetadata(resource_id=resource_id, description=description, cardinality=cardinality,
+                                           node_type=node_type, testbed=testbed)
+
+        resource_id = "pfsense"
+        description = "This resource permits to deploy a pfSense VM."\
+                      "This resource offers the functionalities of pfSense (https://www.pfsense.org/), and " \
+                      "can be configured by means of a Rest API provided by FauxAPI package (https://github.com/ndejong/pfsense_fauxapi)." \
+                      "\nMore information at http://docs.softfire.eu/security-manager/"
+
+        pfsense = messages_pb2.ResourceMetadata(resource_id=resource_id, description=description,
+                                                 cardinality=cardinality,
+                                                 node_type=node_type, testbed=testbed)
+        result = [fw, suricata, pfsense]
         return result
 
     def validate_resources(self, user_info=None, payload=None) -> None:
@@ -97,6 +114,12 @@ class SecurityManager(AbstractManager):
 
             return
 
+        if properties["resource_id"] == "suricata":
+            pass
+
+        if properties["resource_id"] == "pfsense":
+            pass
+
     def provide_resources(self, user_info, payload=None):
         logger.debug("user_info: type: %s, %s" % (type(user_info), user_info))
         logger.debug("payload: %s" % payload)
@@ -123,9 +146,9 @@ class SecurityManager(AbstractManager):
         logger.info("Requested provide_resources by user %s" % username)
 
         nsr_id = ""
-
         nsd_id = ""
-
+        os_project_id = ""
+        os_instance_id = ""
         random_id = random_string(15)
 
         tmp_files_path = "%s/tmp/%s" % (self.local_files_path, random_id)
@@ -269,7 +292,13 @@ class SecurityManager(AbstractManager):
                     vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"] = properties["lan_name"]
                     vnfd["virtual_link"][0]["name"] = properties["lan_name"]
 
-                # TODO set network. To pe added also in the resource definition
+                body = {}
+
+                if "ssh_pub_key" in properties :
+                    key_name = "securityResourceKey"
+                    ob_import_key(ob_project_id, properties["ssh_pub_key"], key_name)
+                    body = {"keys" : [ key_name ]}
+
 
                 logger.debug(vnfd["name"])
                 logger.debug("Prepared VNFD: %s" % vnfd)
@@ -282,7 +311,7 @@ class SecurityManager(AbstractManager):
                 logger.debug("Open Baton project_id: %s" % ob_project_id)
                 try:
                     with ThreadPoolExecutor(max_workers=1) as executor:
-                        future = executor.submit(deploy_package, tar_filename, ob_project_id)
+                        future = executor.submit(deploy_package, tar_filename, ob_project_id, body)
                         return_val = future.result(60)
                     nsr_details = json.loads(return_val)
                     nsr_id = nsr_details["id"]
@@ -290,8 +319,6 @@ class SecurityManager(AbstractManager):
                     response["NSR Details"] = nsr_details
                     update = True
                     disable_port_security = True
-
-
 
                 except Exception as e :
                     message = "Error deploying the Package on Open Baton: %s" % type(e)
@@ -393,7 +420,7 @@ class SecurityManager(AbstractManager):
                         print(nsr_details)
 
                         # TODO delete
-                        os_project_id = "d6626a0b0faf4ecebfa06e8db6c3eb1d"
+                        os_project_id = "4ba2740884e745879b5e48e34546ecd1" #ericsson test
                         # os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[properties["testbed"]]]
                         sess = openstack_login(testbed, os_project_id)
 
@@ -402,7 +429,7 @@ class SecurityManager(AbstractManager):
                         # glance = glance_client.Client(2, session=sess)
 
                         for vnfr in nsr_details["vnfr"]:
-                            disable_port_security = "False"
+
                             for vdu in vnfr["vdu"]:
                                 for vnfc_instance in vdu["vnfc_instance"]:
                                     MY_SERVER_ID = vnfc_instance["vc_id"]
@@ -412,7 +439,9 @@ class SecurityManager(AbstractManager):
                                     interface_list = neutron.list_ports(device_id=MY_SERVER_ID)["ports"]
                                     for i in interface_list:
                                         print(i)
-                                        # neutron.update_port(i["id"], {"port":{"port_security_enabled": False, "security_groups" : []}})
+                                        ret = neutron.update_port(i["id"], {"port":{"port_security_enabled": False, "security_groups" : []}})
+                                        logger.debug(ret)
+                                        disable_port_security = "False"
                         query = "UPDATE resources SET disable_port_security = '%s' WHERE username = '%s' AND ob_nsr_id = '%s'" \
                                 % (disable_port_security, username, nsr_id)
                         execute_query(self.resources_db, query)
