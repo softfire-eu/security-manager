@@ -200,77 +200,7 @@ def execute_query(db, query):
     conn.close()
 
 def openstack_login(testbed, project_id, project_name = None):
-    #TODO load from file
-    openstack_credentials = {
-        "ads": {
-            "username": "softfire",
-            "password": "DrupetruC",
-            "auth_url": "http://172.20.70.130:5000/v3",
-            "ext_net_name": "public",
-            "admin_tenant_name": "softfire",
-            "allocate-fip": 0,
-            "api_version": 3,
-            "admin_project_id": "1e3a8a39d14f47efa0a21b1bcb05fff2",
-            "user_domain_name": "default"
-        },
-        "fokus-dev": {
-            "username": "admin",
-            "password": "opensdncore",
-            "auth_url": "http://172.20.30.5:5000/identity/v3",
-            "ext_net_name": "public",
-            "admin_tenant_name": "admin",
-            "allocate-fip": 0,
-            "api_version": 3,
-            "admin_project_id": "90fac20daa5d41799804978d9925bb97",
-            "user_domain_name": "default"
-        },
-        "fokus": {
-            "username": "softfire-openbaton",
-            "password": "awbijAk3Slat",
-            "auth_url": "http://172.20.30.3:5000/v3",
-            "ext_net_name": "softfire-network",
-            "admin_tenant_name": "5gcore",
-            "allocate-fip": 0,
-            "api_version": 3,
-            "admin_project_id": "0bd6efde713446fb92251c5fab2c8384",
-            "user_domain_name": "default"
-        },
-        "ericsson": {
-            "username": "admin",
-            "password": "8xCYSLx7",
-            "auth_url": "http://sfctrl1.rmedlab.eld.it.eu.ericsson.se:5000/v3/",
-            "ext_net_name": "softfire-external",
-            "admin_tenant_name": "admin",
-            "allocate-fip": 0,
-            "api_version": 3,
-            "admin_project_id": "fed0b52c7e034d5785880613e78d4411",
-            "user_domain_name": "Default"
-        },
-        "surrey": {
-            "username": "admin",
-            "password": "d98b05684dfc4df6",
-            "auth_url": "http://10.5.22.25:5000/v3",
-            "ext_net_name": "softfire-external",
-            "admin_tenant_name": "admin",
-            "allocate-fip": 0,
-            "api_version": 3,
-            "admin_project_id": "4a2931890f734144968d9097f175f7c7",
-            "user_domain_name": "Default"
-        },
-        "reply": {
-            "username": "admin",
-            "password": "password",
-            "auth_url": "http://10.20.70.2:5000/v3",
-            "ext_net_name": "public",
-            "admin_tenant_name": "security-chain-test",
-            "allocate-fip": 0,
-            "api_version": 3,
-            "admin_project_id": "4a2931890f734144968d9097f175f7c7",
-            "user_domain_name": "Default"
-        }
-
-    }
-
+    
     admin_username = openstack_credentials[testbed]["username"]
     password =  openstack_credentials[testbed]["password"]
     auth_url = openstack_credentials[testbed]["auth_url"]

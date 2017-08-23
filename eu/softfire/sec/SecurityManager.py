@@ -244,9 +244,10 @@ class SecurityManager(AbstractManager):
                 with open(rsyslog_conf) as fd_old:
                     for line in fd_old:
                         conf += line.replace("test", elastic_index)
-                conf += '''\nif ($msg contains "[UFW ") then { 
-                action(type="omfwd" target="%s" port="%s" template="softfireFormat")
-                }\n''' % (collector_ip, logstash_port)
+                        conf += line.replace("#", "").replace('target=""', 'target="%s"' % collector_ip).replace('port=""', 'port="%s"' % logstash_port)
+#                conf += '''\nif ($msg contains "[UFW ") then {
+#                action(type="omfwd" target="%s" port="%s" template="softfireFormat")
+#                }\n''' % (collector_ip, logstash_port)
                 with open(rsyslog_conf, "w") as fd_new:
                     fd_new.write(conf)
 
