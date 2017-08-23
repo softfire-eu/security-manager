@@ -121,6 +121,7 @@ class OBClient :
 
 """
 def deploy_package(path, project_id, body={}, resource_type=None):
+
     '''Open Baton Login'''
     agent = ob_login(project_id)
 
@@ -188,6 +189,7 @@ def ob_import_key(project_id, ssh_pub_key, name):
             break
 
     key_agent.create(json.dumps({"name": name, "projectId": project_id, "publicKey": ssh_pub_key}))
+
 """
 
 def add_rule_to_fw(fd, rule):

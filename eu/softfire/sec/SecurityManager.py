@@ -300,7 +300,6 @@ class SecurityManager(AbstractManager):
                     open_baton.import_key(properties["ssh_pub_key"], key_name)
                     body = {"keys" : [ key_name ]}
 
-
                 logger.debug(vnfd["name"])
                 logger.debug("Prepared VNFD: %s" % vnfd)
                 with open("%s/vnfd.json" % tmp_files_path, "w") as fd:
