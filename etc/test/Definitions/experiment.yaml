@@ -82,7 +82,7 @@ topology_template:
       type: SecurityResource
       properties:
         resource_id: firewall
-        want_agent: false
+        want_agent: true #false
         lan_name: softfire-internal
         testbed: ericsson
         default_rule: allow 

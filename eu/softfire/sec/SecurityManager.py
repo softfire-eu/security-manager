@@ -131,21 +131,8 @@ class SecurityManager(AbstractManager):
         except Exception:
             username = "experimenter"
 
-        # TODO REMOVE
-        try:
-            # TODO check param name
-            ob_project_id = user_info.ob_project_id
-            logger.debug("Got Open Baton project id %s" % ob_project_id)
-            default_project_id = get_config("open-baton", "default-project", config_path)
-            if ob_project_id == "":
-                ob_project_id = default_project_id
-        except Exception:
-            ob_project_id = default_project_id
-        # Hardcoded to test interacion with Open baton. Should be sent by the experiment-manager
-
         logger.info("Requested provide_resources by user %s" % username)
 
-        open_baton = OBClient(ob_project_id)
         nsr_id = ""
         nsd_id = ""
         os_project_id = ""
@@ -159,42 +146,37 @@ class SecurityManager(AbstractManager):
         resource = yaml.load(payload)
         properties = resource["properties"]
 
-        '''Download scripts from remote Repository'''
-        scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
-        tar_filename = "%s/%s.tar" % (tmp_files_path, properties["resource_id"])
-
-        r = requests.get(scripts_url, stream=True)
-        with open(tar_filename, 'wb') as fd:
-            for chunk in r.iter_content(chunk_size=128):
-                fd.write(chunk)
-
-        tar = tarfile.open(name=tar_filename, mode="r")
-        tar.extractall(path=tmp_files_path)
-        tar.close()
-
         response = {}
         resource_id = properties["resource_id"]
-        if resource_id == "firewall":
+        OPENBATONRESOURCES = ["firewall", "suricata"]
 
-            '''Modify scripts with custom configuration'''
-            ufw_script = "%s/scripts/ufw.sh" % tmp_files_path
-            with open(ufw_script, "a") as fd:
-                '''Set default rule'''
-                add_rule_to_fw(fd, "default %s" % properties["default_rule"])
+        if resource_id in OPENBATONRESOURCES :
+            # TODO REMOVE
+            try:
+                # TODO check param name
+                ob_project_id = user_info.ob_project_id
+                logger.debug("Got Open Baton project id %s" % ob_project_id)
+                default_project_id = get_config("open-baton", "default-project", config_path)
+                if ob_project_id == "":
+                    ob_project_id = default_project_id
+            except Exception:
+                ob_project_id = default_project_id
+                # Hardcoded to test interacion with Open baton. Should be sent by the experiment-manager
 
-                if properties["logging"]:
-                    fd.write("ufw logging low\n")
+            open_baton = OBClient(ob_project_id)
 
-                '''Set rules for list of IPs'''
-                for ip_list in ip_lists:
-                    if ip_list in properties:
-                        for ip in properties[ip_list]:
-                            if ip_list == "allowed_ips":
+            '''Download scripts from remote Repository'''
+            scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
+            tar_filename = "%s/%s.tar" % (tmp_files_path, properties["resource_id"])
 
-                                rule = "allow from %s" % ip
-                            else:
-                                rule = "deny from %s" % ip
-                            add_rule_to_fw(fd, rule)
+            r = requests.get(scripts_url, stream=True)
+            with open(tar_filename, 'wb') as fd:
+                for chunk in r.iter_content(chunk_size=128):
+                    fd.write(chunk)
+
+            tar = tarfile.open(name=tar_filename, mode="r")
+            tar.extractall(path=tmp_files_path)
+            tar.close()
 
             if properties["logging"]:
                 collector_ip = get_config("log-collector", "ip", config_path)
@@ -243,11 +225,8 @@ class SecurityManager(AbstractManager):
                 conf = ""
                 with open(rsyslog_conf) as fd_old:
                     for line in fd_old:
-                        conf += line.replace("test", elastic_index)
-                        conf += line.replace("#", "").replace('target=""', 'target="%s"' % collector_ip).replace('port=""', 'port="%s"' % logstash_port)
-#                conf += '''\nif ($msg contains "[UFW ") then {
-#                action(type="omfwd" target="%s" port="%s" template="softfireFormat")
-#                }\n''' % (collector_ip, logstash_port)
+                        conf += line.replace("test", elastic_index).replace("#", "").replace('target=""', 'target="%s"' % collector_ip).replace('port=""', 'port="%s"' % logstash_port)
+
                 with open(rsyslog_conf, "w") as fd_new:
                     fd_new.write(conf)
 
@@ -256,6 +235,27 @@ class SecurityManager(AbstractManager):
                                                       random_id)
                 response["log_dashboard_link"] = link
                 # response.append(json.dumps({"log_dashboard_link": link}))
+
+            if resource_id == "firewall":
+                '''Modify scripts with custom configuration'''
+                ufw_script = "%s/scripts/ufw.sh" % tmp_files_path
+                with open(ufw_script, "a") as fd:
+                    '''Set default rule'''
+                    add_rule_to_fw(fd, "default %s" % properties["default_rule"])
+
+                    if properties["logging"]:
+                        fd.write("ufw logging low\n")
+
+                    '''Set rules for list of IPs'''
+                    for ip_list in ip_lists:
+                        if ip_list in properties:
+                            for ip in properties[ip_list]:
+                                if ip_list == "allowed_ips":
+
+                                    rule = "allow from %s" % ip
+                                else:
+                                    rule = "deny from %s" % ip
+                                add_rule_to_fw(fd, rule)
 
             tar = tarfile.open(name=tar_filename, mode='w')
 
@@ -329,6 +329,7 @@ class SecurityManager(AbstractManager):
                     update = False
                     disable_port_security = False
                     response["NSR Details"] = "ERROR: %s" % message
+
 
 
         conn = sqlite3.connect(self.resources_db)
