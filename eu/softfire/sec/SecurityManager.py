@@ -413,7 +413,7 @@ class SecurityManager(AbstractManager):
                 try:
                     delete_ns(nsr_id=r["nsr_id"], nsd_id=r["nsd_id"], project_id=r["project_id"])
                 except Exception as e:
-                    logger.error("Problem contacting Open Baton: " % e)
+                    logger.error("Problem contacting Open Baton: {}".format(e))
 
             file_path = "%s/tmp/%s" % (self.local_files_path, r["random_id"])
             try:
