@@ -81,10 +81,10 @@ topology_template:
     f:
       type: SecurityResource
       properties:
-        resource_id: firewall
+        resource_id: suricata  #firewall
         want_agent: true #false
-        lan_name: softfire-internal
-        testbed: ericsson
+        lan_name: private #softfire-internal
+        testbed: fokus #ericsson
         default_rule: allow 
         denied_ips: [172.20.10.100]
         logging: true

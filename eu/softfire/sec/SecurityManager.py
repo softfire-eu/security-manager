@@ -15,6 +15,20 @@ from eu.softfire.sec.utils.utils import *
 logger = get_logger(config_path, __name__)
 ip_lists = ["allowed_ips", "denied_ips"]
 
+resources = {
+    "firewall" : "This resource permits to deploy a firewall. You can deploy it as a standalone VM, " \
+                 "or you can use it as an agent directly installed on the machine that you want to protect. " \
+                 "This resource offers the functionalities of UFW (https://help.ubuntu.com/community/UFW) and can be easily " \
+                 "configured by means of a Rest API.\nMore information at http://docs.softfire.eu/security-manager/",
+	"suricata" : "This resource permits to deploy a Suricata NIPS. You can deploy it as a standalone VM, " \
+                 "or you can use it as an agent directly installed on the machine that you want to protect. " \
+                 "This resource offers the functionalities of Suricata NIPS (https://suricata-ids.org/).\nMore information at http://docs.softfire.eu/security-manager/",
+	"pfsense" : "This resource permits to deploy a pfSense VM."\
+                "This resource offers the functionalities of pfSense (https://www.pfsense.org/), and " \
+                "can be configured by means of a Rest API provided by FauxAPI package (https://github.com/ndejong/pfsense_fauxapi)." \
+                "\nMore information at http://docs.softfire.eu/security-manager/"
+}
+
 
 class SecurityManager(AbstractManager):
     def __init__(self, config_path):
@@ -40,34 +54,14 @@ class SecurityManager(AbstractManager):
     def list_resources(self, user_info=None, payload=None):
         logger.debug("List resources")
 
-        resource_id = "firewall"
-        description = "This resource permits to deploy a firewall. You can deploy it as a standalone VM, " \
-                      "or you can use it as an agent directly installed on the machine that you want to protect. " \
-                      "This resource offers the functionalities of UFW (https://help.ubuntu.com/community/UFW) and can be easily " \
-                      "configured by means of a Rest API.\nMore information at http://docs.softfire.eu/security-manager/"
         cardinality = -1
         testbed = messages_pb2.ANY
         node_type = "SecurityResource"
-        fw = messages_pb2.ResourceMetadata(resource_id=resource_id, description=description, cardinality=cardinality,
-                                      node_type=node_type, testbed=testbed)
+        result = []
+        for k, v in resources.items() :
+            result.append(messages_pb2.ResourceMetadata(resource_id=k, description=v, cardinality=cardinality,
+                                                        node_type=node_type, testbed=testbed))
 
-        resource_id = "suricata"
-        description = "This resource permits to deploy a Suricata NIPS. You can deploy it as a standalone VM, " \
-                      "or you can use it as an agent directly installed on the machine that you want to protect. " \
-                      "This resource offers the functionalities of Suricata NIPS (https://suricata-ids.org/).\nMore information at http://docs.softfire.eu/security-manager/"
-        suricata = messages_pb2.ResourceMetadata(resource_id=resource_id, description=description, cardinality=cardinality,
-                                           node_type=node_type, testbed=testbed)
-
-        resource_id = "pfsense"
-        description = "This resource permits to deploy a pfSense VM."\
-                      "This resource offers the functionalities of pfSense (https://www.pfsense.org/), and " \
-                      "can be configured by means of a Rest API provided by FauxAPI package (https://github.com/ndejong/pfsense_fauxapi)." \
-                      "\nMore information at http://docs.softfire.eu/security-manager/"
-
-        pfsense = messages_pb2.ResourceMetadata(resource_id=resource_id, description=description,
-                                                 cardinality=cardinality,
-                                                 node_type=node_type, testbed=testbed)
-        result = [fw, suricata, pfsense]
         return result
 
     def validate_resources(self, user_info=None, payload=None) -> None:
@@ -330,8 +324,6 @@ class SecurityManager(AbstractManager):
                     disable_port_security = False
                     response["NSR Details"] = "ERROR: %s" % message
 
-
-
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
         query = "INSERT INTO resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, to_update, disable_port_security) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % \
@@ -356,7 +348,7 @@ class SecurityManager(AbstractManager):
             conn = sqlite3.connect(self.resources_db)
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
-            query = "SELECT * FROM resources AS r JOIN elastic_indexes AS e ON r.username = e.username WHERE r.to_update='True'"
+            query = "SELECT * FROM resources AS r JOIN elastic_indexes AS e ON r.username = e.username" # WHERE r.to_update='True'"
             res = cur.execute(query)
             rows = res.fetchall()
         except Exception as e :
@@ -380,10 +372,10 @@ class SecurityManager(AbstractManager):
 
             '''Repush index-pattern'''
             if elastic_index != "":
-                link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path),
-                                                      get_config("api", "port", config_file_path=config_path),
-                                                      random_id)
-                s["dashboard_log_link"] = link
+                #link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path),
+                #                                      get_config("api", "port", config_file_path=config_path),
+                #                                      random_id)
+                #s["dashboard_log_link"] = link
                 try:
                     with ThreadPoolExecutor(max_workers=1) as executor:
                         future = executor.submit(push_kibana_index, elastic_index)
@@ -393,6 +385,8 @@ class SecurityManager(AbstractManager):
                     logger.error("Problem contacting the log collector: %s" % e)
                     s["dashboard_log_link"] = "ERROR"
 
+            """
+            #Probably useless
             if nsr_id == "":
                 link = "http://%s:%s/%s/%s" % (get_config("system", "ip", config_file_path=config_path),
                                                get_config("api", "port", config_file_path=config_path), resource_id,
@@ -401,8 +395,10 @@ class SecurityManager(AbstractManager):
 
             elif nsr_id == "ERROR" :
                 s["status"] = "Error deploying the Package on Open Baton"
+            ###################
+            """
 
-            else:
+            if r["to_update"] == "True":
                 '''Open Baton resource'''
                 logger.debug("Checking resource nsr_id: %s" % nsr_id)
 
@@ -468,9 +464,9 @@ class SecurityManager(AbstractManager):
                     except Exception:
                         s["status"] == "VM is running but API are unavailable"
 
-            if username not in result.keys():
-                result[username] = []
-            result[username].append(json.dumps(s))
+                if username not in result.keys():
+                    result[username] = []
+                result[username].append(json.dumps(s))
         logger.debug("Result: %s" % result)
         return result
 
