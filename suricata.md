@@ -1,4 +1,4 @@
-#Suricata SecurityResource
+# Suricata SecurityResource
 
 Suricata is a free and open source network threat detection engine.
 
@@ -16,7 +16,7 @@ Suricata is provided in SoftFIRE on top of an Ubuntu VM, and the Suricata Resour
 
 List of features: 
 
-##TCP/IP engines
+## TCP/IP engines
 
 * Scalable flow engine
   * Full IPv6 support
@@ -24,13 +24,13 @@ List of features:
   * TCP stream engine
   * IP Defrag engine
 
-##Protocol parsers
+## Protocol parsers
 * Support for packet decoding of
   * IPv4, IPv6, TCP, UDP, SCTP, ICMPv4, ICMPv6, GRE, Ethernet, PPP, PPPoE, Raw, SLL, VLAN, QINQ, MPLS, ERSPAN
 * App layer decoding of:
   * HTTP, SSL, TLS, SMB, SMB2, DCERPC, SMTP, FTP, SSH, DNS, Modbus, ENIP/CIP, DNP3, NFS, NTP
 
-##HTTP engine
+## HTTP engine
 * Stateful HTTP parser built on libhtp
 * HTTP request logger
 * File identification, extraction and logging
@@ -46,7 +46,7 @@ List of features:
   * request and response lines
   * and many more
 
-##Detection engine
+## Detection engine
 *  Protocol keywords
 *  Multi-tenancy
 *  xbits – flowbits extension
