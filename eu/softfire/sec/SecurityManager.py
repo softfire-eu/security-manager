@@ -372,10 +372,10 @@ class SecurityManager(AbstractManager):
 
             '''Repush index-pattern'''
             if elastic_index != "":
-                #link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path),
-                #                                      get_config("api", "port", config_file_path=config_path),
-                #                                      random_id)
-                #s["dashboard_log_link"] = link
+                link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path),
+                                                      get_config("api", "port", config_file_path=config_path),
+                                                      random_id)
+                s["dashboard_log_link"] = link
                 try:
                     with ThreadPoolExecutor(max_workers=1) as executor:
                         future = executor.submit(push_kibana_index, elastic_index)
@@ -416,35 +416,38 @@ class SecurityManager(AbstractManager):
 
                     """Disable port security on VM's ports"""
                     if disable_port_security == "True":
-                        logger.debug("Trying to disable port security on VM")
-                        print(nsr_details)
+                        try:
+                            logger.debug("Trying to disable port security on VM")
+                            print(nsr_details)
 
-                        # TODO delete
-                        os_project_id = "4ba2740884e745879b5e48e34546ecd1" #ericsson test
-                        # os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[properties["testbed"]]]
-                        sess = openstack_login(testbed, os_project_id)
+                            # TODO delete
+                            os_project_id = "4ba2740884e745879b5e48e34546ecd1" #ericsson test
+                            # os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[properties["testbed"]]]
+                            sess = openstack_login(testbed, os_project_id)
 
-                        # nova = nova_client.Client(session=sess)
-                        neutron = neutron_client.Client(session=sess)
-                        # glance = glance_client.Client(2, session=sess)
+                            # nova = nova_client.Client(session=sess)
+                            neutron = neutron_client.Client(session=sess)
+                            # glance = glance_client.Client(2, session=sess)
 
-                        for vnfr in nsr_details["vnfr"]:
+                            for vnfr in nsr_details["vnfr"]:
 
-                            for vdu in vnfr["vdu"]:
-                                for vnfc_instance in vdu["vnfc_instance"]:
-                                    MY_SERVER_ID = vnfc_instance["vc_id"]
-                                    logger.debug("Trying to disable port security on VM with UUID: %s" % MY_SERVER_ID)
-                                    MY_SERVER_ID = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
+                                for vdu in vnfr["vdu"]:
+                                    for vnfc_instance in vdu["vnfc_instance"]:
+                                        MY_SERVER_ID = vnfc_instance["vc_id"]
+                                        logger.debug("Trying to disable port security on VM with UUID: %s" % MY_SERVER_ID)
+                                        MY_SERVER_ID = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
 
-                                    interface_list = neutron.list_ports(device_id=MY_SERVER_ID)["ports"]
-                                    for i in interface_list:
-                                        print(i)
-                                        ret = neutron.update_port(i["id"], {"port":{"port_security_enabled": False, "security_groups" : []}})
-                                        logger.debug(ret)
-                                        disable_port_security = "False"
-                        query = "UPDATE resources SET disable_port_security = '%s' WHERE username = '%s' AND ob_nsr_id = '%s'" \
-                                % (disable_port_security, username, nsr_id)
-                        execute_query(self.resources_db, query)
+                                        interface_list = neutron.list_ports(device_id=MY_SERVER_ID)["ports"]
+                                        for i in interface_list:
+                                            print(i)
+                                            ret = neutron.update_port(i["id"], {"port":{"port_security_enabled": False, "security_groups" : []}})
+                                            logger.debug(ret)
+                                            disable_port_security = "False"
+                            query = "UPDATE resources SET disable_port_security = '%s' WHERE username = '%s' AND ob_nsr_id = '%s'" \
+                                    % (disable_port_security, username, nsr_id)
+                            execute_query(self.resources_db, query)
+                        except Exception as e:
+                            logger.error("Error disabling port security")
 
                 except Exception as e:
                     logger.error("Error contacting Open Baton to check resource status, nsr_id: %s\n%s" % (nsr_id, e))
@@ -453,7 +456,8 @@ class SecurityManager(AbstractManager):
                 print(s)
                 if s["status"] == "ACTIVE":
                     s["ip"] = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]["ip"]
-                    s["api_url"] = "http://%s:5000" % s["ip"]
+                    if resource_id == "firewall":
+                        s["api_url"] = "http://%s:5000" % s["ip"]
                     try:
                         api_resp = requests.get(s["api_url"])
                         logger.debug(api_resp)
@@ -467,6 +471,8 @@ class SecurityManager(AbstractManager):
                 if username not in result.keys():
                     result[username] = []
                 result[username].append(json.dumps(s))
+            else :
+                s = {}
         logger.debug("Result: %s" % result)
         return result
 
