@@ -118,8 +118,8 @@ SecurityResource:
 
 Every node has different properties. Here they are listed for each type of resource:
 
-**resource_id: [firewall][firewall]**
-[comment]: <> (* **resource_id**: Defines the type of the Security Resource. To date only [firewall][firewall] is accepted)
+**resource_id = [firewall][firewall]**
+
 * **testbed**: Defines where to deploy the Security Resource selected. It is ignored if want_agent is True
 * **want_agent**: Defines if the Experimenter wants the security resource to be an agent directly installed on the VM that he wants to monitor
 * **ssh_key**: Defines the SSH public key to be pushed on the VM in order to be able to log into it
@@ -129,7 +129,8 @@ Every node has different properties. Here they are listed for each type of resou
 * **denied_ips**: List of IPs (or CIDR masks) denied by the firewall [deny from *IP*]
 * **default_rule**: Default rule applied by the firewall (allow/deny)
 
-**resource_id: [suricata][suricata]**
+**resource_id = [suricata][suricata]**
+
 * **testbed**: Defines where to deploy the Security Resource selected. It is ignored if want_agent is True
 * **want_agent**: Defines if the Experimenter wants the security resource to be an agent directly installed on the VM that he wants to monitor
 * **ssh_key**: Defines the SSH public key to be pushed on the VM in order to be able to log into it
@@ -137,7 +138,8 @@ Every node has different properties. Here they are listed for each type of resou
 * **logging**: Defines if the Experimenter wants the security resource to send its log messages to a collector and he wants to see them on a dashboard
 * **rules**: Defines the list of rules to be configured in Suricata VM. These rules follow the syntax 
 
-**resource_id: [pfsense][pfsense]**
+**resource_id = [pfsense][pfsense]**
+
 * **testbed**: Defines where to deploy the Security Resource selected
 * **wan_name**: Selects the network on which the first interface of the VM is attached. It is configured as WAN on pfSense. It must be a network connected to the SoftFIRE-public network 
 * **lan_name**: Selects the network on which the second interface of the VM is attached. It is configured as LAN on pfSense
@@ -167,7 +169,7 @@ This sequence diagram specifies the operations performed by the Security Manager
 [suricata]:suricata.md
 [pfsense]:pfsense.md
 [docu_url]:http://docs.softfire.eu/security-manager/
-[sequence]: img/security-manager.png
+[sequence]:security-manager.png
 
 
 
