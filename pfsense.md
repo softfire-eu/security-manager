@@ -26,12 +26,15 @@ This is a list of the main features offered by pfSense OS:
 More detailed information about pfSense can be found on the official [website](https://www.pfsense.org/) 
 and [documentation](https://doc.pfsense.org).
 
-The pfSense VM is by default provided by the security manager with the following characteristics:
+The pfSense VM is by default provided by the Security Manager with the following characteristics:
 
-|:-----------:|:-------:|
+| | |
+|:-----------|:-------:|
 | vCPUs       | 1       |
 | RAM         | 512 MB  |
 | Disk        | 1 GB    |
 | Interfaces  | 2       |
+
+The two network interfaces are attached to *wan_name* and *lan_name* networks, and they are set as *WAN* and *LAN* interface respectively. 
 
 [Legal disclaimer](https://www.pfsense.org/about-pfsense/)
