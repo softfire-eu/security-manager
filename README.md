@@ -45,7 +45,7 @@ To date, the Security Manager provides three types of resources:
 
 * [firewall][firewall]
 * [suricata][suricata]
-* [pfsense][suricata]
+* [pfsense][pfsense]
 
 
 ## Security Resource definition
