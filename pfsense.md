@@ -28,7 +28,7 @@ and [documentation](https://doc.pfsense.org).
 
 The pfSense VM is by default provided by the security manager with the following characteristics:
 
-:-------------:---------:
+|:-----------:|:-------:|
 | vCPUs       | 1       |
 | RAM         | 512 MB  |
 | Disk        | 1 GB    |
