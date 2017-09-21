@@ -111,3 +111,4 @@ List of features:
 * live reload support
 * supports CIDR ranges
 
+[Legal disclaimer](http://suricata.readthedocs.io/en/latest/licenses/)
