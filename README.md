@@ -67,7 +67,7 @@ SecurityResource:
             type: string
             required: false
 
-        lan_name:This node type
+        lan_name:
             type: string
             required: false
 
@@ -76,7 +76,7 @@ SecurityResource:
             required: false
             description: valid for pfsense
 
-        ssh_key:This node type
+        ssh_key:
             type: string
             required: false
             description: valid for firewall and suricata
