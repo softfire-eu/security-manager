@@ -7,7 +7,7 @@ by means of a web dashboard, as well as a low-level interface by means of SSH.
 Furthermore, pfSense supports the installation of third-party packages, that can be included. Exploiting this mechanism, the resource made 
 available for SoftFIRE experimenters provides a ReST interface through which it is possible to configure and modify every property of the pfSense. 
 The packet used to provide the ReST interface is the FauxAPI extension (please refer to the official [repository](https://github.com/ndejong/pfsense_fauxapi/) 
-for more details about). The develo
+for more details about). 
 
 Moreover, the credentials of the Experimenter are pushed in the Virtual Machine, so that user only is able to access each of the available
 interfaces. 
