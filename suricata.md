@@ -14,6 +14,8 @@ Suricata is provided in SoftFIRE on top of an Ubuntu VM, and the Suricata Resour
 2. The Experimenters can view Suricata log messages on a dedicated dashboard
 3. The Experimenters can exploits all Suricata features. 
 
+The official documentation about Suricata can be found at [http://suricata.readthedocs.io/en/latest/].
+
 List of features: 
 
 ## TCP/IP engines
@@ -87,14 +89,14 @@ List of features:
 * global alert filtering and thresholding
 * per host/subnet thresholding and rate limiting settings
 
-# Packet acquisition
+## Packet acquisition
 
 * High performance capture
 * Standard capture
 * IPS mode
 * Capture cards and specialized devices
 
-# Multi Threading
+## Multi Threading
 
 * fully configurable threading — from single thread to dozens of threads
 * precooked “runmodes”
@@ -102,7 +104,7 @@ List of features:
 * Use of fine grained locking and atomic operations for optimal performance
 * Optional lock profiling
 
-# IP Reputation
+## IP Reputation
 
 * loading of large amounts host based reputation data
 * matching on reputation data in the rule language using the “iprep” keyword
