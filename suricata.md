@@ -14,7 +14,7 @@ Suricata is provided in SoftFIRE on top of an Ubuntu VM, and the Suricata Resour
 2. The Experimenters can view Suricata log messages on a dedicated dashboard
 3. The Experimenters can exploits all Suricata features. 
 
-The official documentation about Suricata can be found at [http://suricata.readthedocs.io/en/latest/].
+The official documentation about Suricata can be found at <http://suricata.readthedocs.io/en/latest/>.
 
 List of features: 
 
