@@ -47,84 +47,65 @@ List of features:
   * and many more
 
 ## Detection engine
-*  Protocol keywords
-*  Multi-tenancy
-*  xbits – flowbits extension
-*  PCRE support
-*      substring capture for logging in EVE
-*  fast_pattern
-*  Rule profiling
-*  File matching
-*      file magic
-*      file size
-*      file name and extension
-*      file MD5 checksum — scales up to millions of checksums
-*  multiple pattern matcher algorithms that can be selected
-*  extensive tuning options
-*  live rule reloads — use new rules w/o restarting Suricata
-*  delayed rules initialization
-*  Lua scripting
-*  Hyperscan integration
+* Protocol keywords
+* Multi-tenancy
+* xbits – flowbits extension
+* fast_pattern
+* Rule profiling
+* File matching
+* multiple pattern matcher algorithms that can be selected
+* extensive tuning options
+* live rule reloads — use new rules w/o restarting Suricata
+* delayed rules initialization
+* Lua scripting
+* Hyperscan integration
 
-Outputs
+## Outputs
 
-    Eve log, all JSON alert and event output
-    Lua output scripts
-    Redis support
-    HTTP request logging
-    TLS handshake logging
-    Unified2 output — compatible with Barnyard2
-    Alert fast log
-    Alert debug log — for rule writers
-    Traffic recording using pcap logger
-    Prelude support
-    drop log — netfilter style log of dropped packets in IPS mode
-    syslog — alert to syslog
-    stats — engine stats at fixed intervals
-    File logging including MD5 checksum in JSON format
-    Extracted file storing to disk
-    DNS request/reply logger, including TXT data
-    Signal based Log rotation
-    Flow logging
+* Eve log, all JSON alert and event output
+* Lua output scripts
+* Redis support
+* HTTP request logging
+* TLS handshake logging
+* Unified2 output — compatible with Barnyard2
+* Alert fast log
+* Alert debug log — for rule writers
+* Traffic recording using pcap logger
+* Prelude support
+* drop log — netfilter style log of dropped packets in IPS mode
+* syslog — alert to syslog
+* stats — engine stats at fixed intervals
+* File logging including MD5 checksum in JSON format
+* Extracted file storing to disk
+* DNS request/reply logger, including TXT data
+* Signal based Log rotation
+* Flow logging
 
-Alert/Event filtering
+## Alert/Event filtering
 
-    per rule alert filtering and thresholding
-    global alert filtering and thresholding
-    per host/subnet thresholding and rate limiting settings
+* per rule alert filtering and thresholding
+* global alert filtering and thresholding
+* per host/subnet thresholding and rate limiting settings
 
-Packet acquisition
+# Packet acquisition
 
-    High performance capture
-        AF_PACKET
-        PF_RING
-        NETMAP
-    Standard capture
-        PCAP
-        NFLOG (netfilter integration)
-    IPS mode
-        Netfilter based on Linux (nfqueue)
-            fail open support
-        ipfw based on FreeBSD and NetBSD
-        AF_PACKET based on Linux
-        NETMAP
-    Capture cards and specialized devices
-        Endace
-        Napatech
-        Tilera
+* High performance capture
+* Standard capture
+* IPS mode
+* Capture cards and specialized devices
 
-Multi Threading
+# Multi Threading
 
-    fully configurable threading — from single thread to dozens of threads
-    precooked “runmodes”
-    optional CPU affinity settings
-    Use of fine grained locking and atomic operations for optimal performance
-    Optional lock profiling
+* fully configurable threading — from single thread to dozens of threads
+* precooked “runmodes”
+* optional CPU affinity settings
+* Use of fine grained locking and atomic operations for optimal performance
+* Optional lock profiling
 
-IP Reputation
+# IP Reputation
 
-    loading of large amounts host based reputation data
-    matching on reputation data in the rule language using the “iprep” keyword
-    live reload support
-    supports CIDR ranges
+* loading of large amounts host based reputation data
+* matching on reputation data in the rule language using the “iprep” keyword
+* live reload support
+* supports CIDR ranges
 
