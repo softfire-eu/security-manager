@@ -6,7 +6,7 @@ It can be installed on either physical or virtual machines, and it offers an hig
 by means of a web dashboard, as well as a low-level interface by means of SSH.
 Furthermore, pfSense supports the installation of third-party packages, that can be included. Exploiting this mechanism, the resource made 
 available for SoftFIRE experimenters provides a ReST interface through which it is possible to configure and modify every property of the pfSense. 
-The packet used to provide the ReST interface is the FauxAPI extension (please refer to the official [repository][https://github.com/ndejong/pfsense_fauxapi/] 
+The packet used to provide the ReST interface is the FauxAPI extension (please refer to the official [repository](https://github.com/ndejong/pfsense_fauxapi/) 
 for more details about). The develo
 
 Moreover, the credentials of the Experimenter are pushed in the Virtual Machine, so that user only is able to access each of the available
@@ -23,9 +23,15 @@ This is a list of the main features offered by pfSense OS:
 * Dynamic DNS
 * DHCP Server and Relay 
 
-More detailed information about pfSense can be found on the official [website][https://www.pfsense.org/] 
-and [documentation][https://doc.pfsense.org].
+More detailed information about pfSense can be found on the official [website](https://www.pfsense.org/) 
+and [documentation](https://doc.pfsense.org).
 
+The pfSense VM is by default provided by the security manager with the following characteristics:
 
+:-------------:---------:
+| vCPUs       | 1       |
+| RAM         | 512 MB  |
+| Disk        | 1 GB    |
+| Interfaces  | 2       |
 
-[Legal disclaimer][https://www.pfsense.org/about-pfsense/]
+[Legal disclaimer](https://www.pfsense.org/about-pfsense/)
