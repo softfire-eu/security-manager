@@ -24,9 +24,9 @@ The official documentation about Suricata can be found at <http://suricata.readt
 * **logging**: Defines if the Experimenter wants the security resource to send its log messages to a collector and he wants to see them on a dashboard
 * **rules**: Defines the list of rules to be configured in Suricata VM. These rules follow the syntax
 
-List of features: 
+## List of features
 
-## TCP/IP engines
+### TCP/IP engines
 
 * Scalable flow engine
   * Full IPv6 support
@@ -34,13 +34,13 @@ List of features:
   * TCP stream engine
   * IP Defrag engine
 
-## Protocol parsers
+### Protocol parsers
 * Support for packet decoding of
   * IPv4, IPv6, TCP, UDP, SCTP, ICMPv4, ICMPv6, GRE, Ethernet, PPP, PPPoE, Raw, SLL, VLAN, QINQ, MPLS, ERSPAN
 * App layer decoding of:
   * HTTP, SSL, TLS, SMB, SMB2, DCERPC, SMTP, FTP, SSH, DNS, Modbus, ENIP/CIP, DNP3, NFS, NTP
 
-## HTTP engine
+### HTTP engine
 * Stateful HTTP parser built on libhtp
 * HTTP request logger
 * File identification, extraction and logging
@@ -56,7 +56,7 @@ List of features:
   * request and response lines
   * and many more
 
-## Detection engine
+### Detection engine
 * Protocol keywords
 * Multi-tenancy
 * xbits – flowbits extension
@@ -70,7 +70,7 @@ List of features:
 * Lua scripting
 * Hyperscan integration
 
-## Outputs
+### Outputs
 
 * Eve log, all JSON alert and event output
 * Lua output scripts
@@ -91,20 +91,20 @@ List of features:
 * Signal based Log rotation
 * Flow logging
 
-## Alert/Event filtering
+### Alert/Event filtering
 
 * per rule alert filtering and thresholding
 * global alert filtering and thresholding
 * per host/subnet thresholding and rate limiting settings
 
-## Packet acquisition
+### Packet acquisition
 
 * High performance capture
 * Standard capture
 * IPS mode
 * Capture cards and specialized devices
 
-## Multi Threading
+### Multi Threading
 
 * fully configurable threading — from single thread to dozens of threads
 * precooked “runmodes”
@@ -112,7 +112,7 @@ List of features:
 * Use of fine grained locking and atomic operations for optimal performance
 * Optional lock profiling
 
-## IP Reputation
+### IP Reputation
 
 * loading of large amounts host based reputation data
 * matching on reputation data in the rule language using the “iprep” keyword
