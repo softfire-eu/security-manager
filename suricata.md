@@ -16,6 +16,14 @@ Suricata is provided in SoftFIRE on top of an Ubuntu VM, and the Suricata Resour
 
 The official documentation about Suricata can be found at <http://suricata.readthedocs.io/en/latest/>.
 
+## Resource properties
+* **testbed**: Defines where to deploy the Security Resource selected. It is ignored if want_agent is True
+* **want_agent**: Defines if the Experimenter wants the security resource to be an agent directly installed on the VM that he wants to monitor
+* **ssh_key**: Defines the SSH public key to be pushed on the VM in order to be able to log into it
+* **lan_name**: Select the network on which the VM is deployed (if __want_agent__ is False). If no value is entered, __softfire-internal__ is chosen
+* **logging**: Defines if the Experimenter wants the security resource to send its log messages to a collector and he wants to see them on a dashboard
+* **rules**: Defines the list of rules to be configured in Suricata VM. These rules follow the syntax
+
 List of features: 
 
 ## TCP/IP engines

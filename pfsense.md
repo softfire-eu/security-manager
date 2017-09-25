@@ -26,6 +26,8 @@ This is a list of the main features offered by pfSense OS:
 More detailed information about pfSense can be found on the official [website](https://www.pfsense.org/) 
 and [documentation](https://doc.pfsense.org).
 
+## VM specification
+
 The pfSense VM is by default provided by the Security Manager with the following characteristics:
 
 | | |
@@ -36,5 +38,10 @@ The pfSense VM is by default provided by the Security Manager with the following
 | Interfaces  | 2       |
 
 The two network interfaces are attached to *wan_name* and *lan_name* networks, and they are set as *WAN* and *LAN* interface respectively. 
+
+## Resource properties
+* **testbed**: Defines where to deploy the Security Resource selected
+* **wan_name**: Selects the network on which the first interface of the VM is attached. It is configured as WAN on pfSense. It must be a network connected to the SoftFIRE-public network 
+* **lan_name**: Selects the network on which the second interface of the VM is attached. It is configured as LAN on pfSense
 
 [Legal disclaimer](https://www.pfsense.org/about-pfsense/)
