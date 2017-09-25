@@ -12,6 +12,12 @@ for more details about).
 Moreover, the credentials of the Experimenter are pushed in the Virtual Machine, so that user only is able to access each of the available
 interfaces. 
 
+## Resource properties
+* **testbed**: Defines where to deploy the Security Resource selected
+* **wan_name**: Selects the network on which the first interface of the VM is attached. It is configured as WAN on pfSense. It must be a network connected to the SoftFIRE-public network 
+* **lan_name**: Selects the network on which the second interface of the VM is attached. It is configured as LAN on pfSense
+
+## List of features
 This is a list of the main features offered by pfSense OS: 
 
 * Firewall with stateful packet inspection
@@ -38,10 +44,5 @@ The pfSense VM is by default provided by the Security Manager with the following
 | Interfaces  | 2       |
 
 The two network interfaces are attached to *wan_name* and *lan_name* networks, and they are set as *WAN* and *LAN* interface respectively. 
-
-## Resource properties
-* **testbed**: Defines where to deploy the Security Resource selected
-* **wan_name**: Selects the network on which the first interface of the VM is attached. It is configured as WAN on pfSense. It must be a network connected to the SoftFIRE-public network 
-* **lan_name**: Selects the network on which the second interface of the VM is attached. It is configured as LAN on pfSense
 
 [Legal disclaimer](https://www.pfsense.org/about-pfsense/)
