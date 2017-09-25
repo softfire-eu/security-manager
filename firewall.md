@@ -18,6 +18,17 @@ Services specifically available for the firewall Resource are:
 7. The Experimenter can dynamically update a rule on the firewall 
 8. The Experimenter can dynamically remove a rule from the firewall 
 
+## Resource properties
+* **testbed**: Defines where to deploy the Security Resource selected. It is ignored if want_agent is True
+* **want_agent**: Defines if the Experimenter wants the security resource to be an agent directly installed on the VM that he wants to monitor
+* **ssh_key**: Defines the SSH public key to be pushed on the VM in order to be able to log into it
+* **lan_name**: Select the network on which the VM is deployed (if __want_agent__ is False). If no value is entered, __softfire-internal__ is chosen
+* **logging**: Defines if the Experimenter wants the security resource to send its log messages to a collector and he wants to see them on a dashboard
+* **allowed_ips**: List of IPs (or CIDR  masks) allowed by the firewall. [allow from *IP*]
+* **denied_ips**: List of IPs (or CIDR masks) denied by the firewall [deny from *IP*]
+* **default_rule**: Default rule applied by the firewall (allow/deny)
+
+## API documentation
 Here you can find the API definition to configure the firewall.
 
 Overview

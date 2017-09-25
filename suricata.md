@@ -25,6 +25,7 @@ The official documentation about Suricata can be found at <http://suricata.readt
 * **rules**: Defines the list of rules to be configured in Suricata VM. These rules follow the syntax
 
 ## List of features
+This is a list of the main features offered by Suricata: 
 
 ### TCP/IP engines
 
