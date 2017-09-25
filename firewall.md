@@ -28,11 +28,8 @@ Services specifically available for the firewall Resource are:
 * **denied_ips**: List of IPs (or CIDR masks) denied by the firewall [deny from *IP*]
 * **default_rule**: Default rule applied by the firewall (allow/deny)
 
-## API documentation
-Here you can find the API definition to configure the firewall.
-
-Overview
-========
+API documentation
+=================
 
 Control your UFW firewall via Rest APIs. Please consider that this is a
 Beta Version. Authentication will be probably added to the following
