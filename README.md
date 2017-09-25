@@ -7,12 +7,12 @@ Here is the list of the available features for every type of Resource.
 
 1. The Experimenters can deploy a Security Resource
 2. The Experimenters can statically configure the Security Resource by means of its descriptor
-1. The Experimenter can statically configure some rules on her Resource)
+1. The Experimenter can statically configure some features on her Resource
 3. The Experimenters can dynamically configure the Resource once it has been deployed
 
-Features not available for Resource _pfsense_
+Features **not** available for Resource _pfsense_
 
-1. The Experimenters can enable logs collection from her Resource
+1. The Experimenters can enable logs collection from their Resource
 4. The Experimenters can see Resources logs in a web dashboard
 5. The Experimenters can perform searches among the Resources logs in a web dashboard
 6. The Experimenters can see statistics related to the Resources logs in a web dashboard  
