@@ -27,21 +27,21 @@ collector, which makes them available in a simple web page reserved to them. The
 could easily access it through its web browser and check the behaviour of all their security agents,
 and to see some related statistics.
 
-The Experimenter can get the Security Resource in two different formats:
+The Experimenters can get the Security Resource in two different formats:
 
-* As an agent directly installed in the VM that she wants to monitor. The system will
-provide her a script that the Experimenter has just to run inside the VM. It will be already
+* As an agent directly installed in the VM that they want to monitor. The system will
+provide them a script that the Experimenters have just to run inside the VM. It will be already
 configured as required in the TOSCA description of the resource. The output of the script
-will provide to the Experimenter information on how to access the deployed resource
+will provide to the Experimenters information on how to access the deployed resource
 (URLs, etc.)
 
-* As a standalone VM the Security Resource will be deployed directly by the Security
+* As a standalone VM. The Security Resource will be deployed directly by the Security
 Manager in the testbed chosen by the Experimenter. The Security Manager will take
 care of the initial configuration of the resource.
-The Experimenter has to set up on her own the redirection of the network traffic that he wants
+The Experimenters have to set up on their own the redirection of the network traffic that they want
 to control through the Security Resource VM (by means of OS configuration, or SDN capabilities provided by the SoftFIRE platform).  
 
-To date, the Security Manager provides three types of resources:
+The Security Manager provides three types of resources:
 
 * [firewall][firewall]
 * [suricata][suricata]
