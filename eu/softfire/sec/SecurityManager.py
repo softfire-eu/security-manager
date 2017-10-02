@@ -279,9 +279,9 @@ class SecurityManager(AbstractManager):
                 vnfd["vdu"][0]["vimInstanceName"] = ["vim-instance-%s" % properties["testbed"]]
 
                 '''
-                
+
                 vnfd["vdu"][0]["vm_image"][0] = properties["os_image_name"]
-                
+
                 '''
                 if "lan_name" in properties :
                     vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"] = properties["lan_name"]
@@ -393,7 +393,7 @@ class SecurityManager(AbstractManager):
                                                random_id)
                 s["download_link"] = link
 
-            elif nsr_id == "ERROR" :
+            elif nsr_id == "ERROR" :w
                 s["status"] = "Error deploying the Package on Open Baton"
             ###################
             """
@@ -466,7 +466,7 @@ class SecurityManager(AbstractManager):
                             % (nsr_id, username)
                         execute_query(self.resources_db, query)
                     except Exception:
-                        s["status"] == "VM is running but API are unavailable"
+                        s["status"] = "VM is running but API are unavailable"
 
                 if username not in result.keys():
                     result[username] = []
