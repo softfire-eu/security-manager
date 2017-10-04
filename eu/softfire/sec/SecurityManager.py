@@ -9,8 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from paramiko import SSHClient, AutoAddPolicy
 from scp import SCPClient
 import bcrypt
-
-from neutronclient.v2_0 import client as neutron_client
+from idstools import rule
 
 from eu.softfire.sec.exceptions.exceptions import *
 from eu.softfire.sec.utils.utils import *
@@ -19,6 +18,8 @@ from eu.softfire.sec.utils.OSclient import OSclient
 
 logger = get_logger(config_path, __name__)
 ip_lists = ["allowed_ips", "denied_ips"]
+
+OPENBATONRESOURCES = ["firewall", "suricata"]
 
 resources = {
     "firewall" : "This resource permits to deploy a firewall. You can deploy it as a standalone VM, " \
@@ -70,14 +71,23 @@ class SecurityManager(AbstractManager):
         return result
 
     def validate_resources(self, user_info=None, payload=None) -> None:
-
-        resource = yaml.load(payload)
-        logger.debug("Validating resource %s" % resource)
         '''
         :param payload: yaml string containing the resource definition
         '''
+
+        resource = yaml.load(payload)
+        logger.debug("Validating resource %s" % resource)
+        message = ""
         print(user_info)
         properties = resource["properties"]
+        testbeds = TESTBED_MAPPING.keys()
+
+        valid_testbed = "testbed" in properties and properties["testbed"] in testbeds
+        want_agent =  properties["resource_id"] in OPENBATONRESOURCES and "want_agent" in properties and properties["want_agent"]
+        if not(valid_testbed or want_agent):
+            message = "testbed does not contain a valid value"
+            logger.info(message)
+            raise ResourceValidationError(message=message)
 
         if properties["resource_id"] == "firewall":
             '''Required properties are already defined in the template'''
@@ -102,22 +112,25 @@ class SecurityManager(AbstractManager):
                             logger.info(message)
                             raise ResourceValidationError(message=message)
 
-            '''Check testbed value'''
-            testbeds = TESTBED_MAPPING.keys()
-            # testbeds = get_config("open-baton", "testbeds", config_path)
-            if (not properties["want_agent"]) and (
-                            not "testbed" in properties or (not properties["testbed"] in testbeds)):
-                message = "testbed does not contain a valid value"
-                logger.info(message)
-                raise ResourceValidationError(message=message)
+
 
             return
 
         if properties["resource_id"] == "suricata":
-            pass
+            for r in properties["rules"] :
+                ru = rule.parse(r)
+                if not ru :
+                    message = "Invalid Suricata rule: %s" % r
+                    logger.info(message)
+                    raise ResourceValidationError(message=message)
 
         if properties["resource_id"] == "pfsense":
-            pass
+            '''Check testbed value'''
+            if not "testbed" in properties or (not properties["testbed"] in testbeds):
+                message = "testbed does not contain a valid value"
+                logger.info(message)
+                raise ResourceValidationError(message=message)
+
 
     def provide_resources(self, user_info, payload=None):
         logger.debug("user_info: type: %s, %s" % (type(user_info), user_info))
@@ -131,6 +144,7 @@ class SecurityManager(AbstractManager):
         ob_project_id = ""
         os_project_id = ""
         os_instance_id = ""
+        testbed = ""
         update = False
         disable_port_security = False
         random_id = random_string(15)
@@ -143,23 +157,12 @@ class SecurityManager(AbstractManager):
         print(resource)
         properties = resource["properties"]
 
-
         response = {}
         resource_id = properties["resource_id"]
-        OPENBATONRESOURCES = ["firewall", "suricata"]
 
         if resource_id in OPENBATONRESOURCES :
-            # TODO REMOVE
-            try:
-                # TODO check param name
-                ob_project_id = user_info.ob_project_id
-                logger.debug("Got Open Baton project id %s" % ob_project_id)
-                default_project_id = get_config("open-baton", "default-project", config_path)
-                if ob_project_id == "":
-                    ob_project_id = default_project_id
-            except Exception:
-                ob_project_id = default_project_id
-                # Hardcoded to test interacion with Open baton. Should be sent by the experiment-manager
+            ob_project_id = user_info.ob_project_id
+            logger.debug("Got Open Baton project id %s" % ob_project_id)
 
             open_baton = OBClient(ob_project_id)
 
@@ -176,7 +179,7 @@ class SecurityManager(AbstractManager):
             tar.extractall(path=tmp_files_path)
             tar.close()
 
-            if properties["logging"]:
+            if "logging" in properties and properties["logging"]:
                 collector_ip = get_config("log-collector", "ip", config_path)
                 elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
                 dashboard_template = get_config("log-collector", "dashboard-template", config_path)
@@ -257,7 +260,7 @@ class SecurityManager(AbstractManager):
 
             tar = tarfile.open(name=tar_filename, mode='w')
 
-            if properties["want_agent"]:
+            if "want_agent" in properties and properties["want_agent"]:
                 '''Prepare .tar with custom scripts'''
 
                 tar.add('%s/scripts' % tmp_files_path, arcname='')
@@ -355,9 +358,6 @@ class SecurityManager(AbstractManager):
                 fauxapi_apikey = get_config("pfsense", "fauxapi-apikey", config_path)
                 fauxapi_apisecret = get_config("pfsense", "fauxapi-apisecret", config_path)
 
-                response["FauxAPI-ApiKey"] = fauxapi_apikey
-                response["FauxAPI-ApiSecret"] = fauxapi_apisecret
-
                 api = FauxapiLib(pf_sense_ip, fauxapi_apikey, fauxapi_apisecret, debug=True)
 
                 reachable = False
@@ -388,7 +388,6 @@ class SecurityManager(AbstractManager):
                 scp = SCPClient(ssh.get_transport())
                 scp.put(files=local_script_path, remote_path=pfsense_script_path)
 
-                # TODO setup right api-key
                 apisecret_value = random_string(60)
                 config["system"]["shellcmd"] = [
                     "sh {0} {1} {2} {3}".format(pfsense_script_path, credentials_file, username, apisecret_value)]
@@ -397,16 +396,16 @@ class SecurityManager(AbstractManager):
                 api.config_set(config)
                 api.config_reload()
                 api.system_reboot()
+                response["FauxAPI-ApiKey"] = "[PFFA%s]" % username
+                response["FauxAPI-ApiSecret"] = apisecret_value
             except Exception as e:
                 logger.error(e)
 
 
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
-        query = "INSERT INTO resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, to_update, disable_port_security) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % \
-                (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, update, disable_port_security)
         query = "INSERT INTO resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, os_project_id, os_instance_id, to_update, disable_port_security) \
-        VALUES ('{0}', '{1}', '{2}', '{3}', '{4}', '{5}', '{6}', '{7}', '{8}')"\
+        VALUES ('{0}', '{1}', '{2}', '{3}', '{4}', '{5}', '{6}', '{7}', '{8}', '{9}', '{10}')"\
             .format(username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security)
         logger.debug("Executing %s" % query)
 
@@ -546,12 +545,7 @@ class SecurityManager(AbstractManager):
         return result
 
     def release_resources(self, user_info=None, payload=None):
-        # TODO REMOVE
-        try:
-            # TODO check param name
-            username = user_info.name
-        except Exception:
-            username = "experimenter"
+        username = user_info.name
 
         logger.info("Requested release_resources by user %s" % username)
         logger.debug("Arrived release_resources\nPayload: %s" % payload)
@@ -571,6 +565,12 @@ class SecurityManager(AbstractManager):
                 except Exception as e:
                     logger.error("Problem contacting Open Baton: " % e)
 
+            if r["os_instance_id"] != "" :
+                try:
+                    openstack = OSclient(r["testbed"], username, r["os_project_id"])
+                    openstack.delete_server(r["os_instance_id"])
+                except Exception as e :
+                    logger.error("Problem contacting OpenStack: " % e)
             file_path = "%s/tmp/%s" % (self.local_files_path, r["random_id"])
             try:
                 shutil.rmtree(file_path)
@@ -598,15 +598,29 @@ if __name__ == "__main__":
 
     os.environ["http_proxy"] = ""
     user = UserInfo("experimenter", "password", "e9b85df7d3dc4f50b9dfb608df270533", "")
-    resource = """properties:
+    pfsense_resource = """properties:
         resource_id: pfsense
         testbed: reply
         wan_name: my_personal
         lan_name: test
         """
+    suricata_resource = """properties:
+        resource_id: suricata
+        want_agent: True
+        testbed: cane
+        rules: 
+            - alert icmp any any -> $HOME_NET any (msg:”ICMP test”; sid:1000001; rev:1; classtype:icmp-event;)
+    """
+
+    resource = suricata_resource
     sec = SecurityManager(config_path)
+    sec.validate_resources(user, payload=resource)
 
     sec.provide_resources(user, payload=resource)
+    time.sleep(300)
+    sec._update_status()
+
+    sec.release_resources(user)
 
 
 
