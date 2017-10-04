@@ -5,3 +5,6 @@ class BaseException(Exception):
 
 class ResourceValidationError(BaseException):
 	pass
+
+class OpenStackDeploymentError(BaseException):
+	pass
