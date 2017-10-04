@@ -116,7 +116,7 @@ class SecurityManager(AbstractManager):
 
             return
 
-        if properties["resource_id"] == "suricata":
+        if properties["resource_id"] == "suricata" and "rules" in properties:
             for r in properties["rules"] :
                 ru = rule.parse(r)
                 if not ru :
@@ -258,6 +258,16 @@ class SecurityManager(AbstractManager):
                                     rule = "deny from %s" % ip
                                 add_rule_to_fw(fd, rule)
 
+            if resource_id == "suricata" and "rules" in properties:
+                """Add rules to signatures.rules file"""
+                rules = ""
+                for r in properties["rules"]:
+                    rules += r + "\n"
+
+                rules_file_path = "%s/scripts/signatures.rules" % tmp_files_path
+                with open(rules_file_path, "w") as fd:
+                    fd.write(rules)
+
             tar = tarfile.open(name=tar_filename, mode='w')
 
             if "want_agent" in properties and properties["want_agent"]:
@@ -274,7 +284,6 @@ class SecurityManager(AbstractManager):
 
                 update = False
                 disable_port_security = False
-                # response.append(json.dumps({"download_link": link}))
             else:
                 testbed = properties["testbed"]
                 vnfd = {}
