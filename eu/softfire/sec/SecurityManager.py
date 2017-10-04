@@ -6,11 +6,16 @@ import yaml
 from IPy import IP
 from sdk.softfire.manager import AbstractManager
 from concurrent.futures import ThreadPoolExecutor
+from paramiko import SSHClient, AutoAddPolicy
+from scp import SCPClient
+import bcrypt
 
 from neutronclient.v2_0 import client as neutron_client
 
 from eu.softfire.sec.exceptions.exceptions import *
 from eu.softfire.sec.utils.utils import *
+from eu.softfire.sec.utils.fauxapi_lib import FauxapiLib
+from eu.softfire.sec.utils.OSclient import OSclient
 
 logger = get_logger(config_path, __name__)
 ip_lists = ["allowed_ips", "denied_ips"]
@@ -117,20 +122,17 @@ class SecurityManager(AbstractManager):
     def provide_resources(self, user_info, payload=None):
         logger.debug("user_info: type: %s, %s" % (type(user_info), user_info))
         logger.debug("payload: %s" % payload)
-
-        # TODO REMOVE
-        try:
-            # TODO check param name
-            username = user_info.name
-        except Exception:
-            username = "experimenter"
+        username = user_info.name
 
         logger.info("Requested provide_resources by user %s" % username)
 
         nsr_id = ""
         nsd_id = ""
+        ob_project_id = ""
         os_project_id = ""
         os_instance_id = ""
+        update = False
+        disable_port_security = False
         random_id = random_string(15)
 
         tmp_files_path = "%s/tmp/%s" % (self.local_files_path, random_id)
@@ -138,7 +140,9 @@ class SecurityManager(AbstractManager):
         os.makedirs(tmp_files_path)
 
         resource = yaml.load(payload)
+        print(resource)
         properties = resource["properties"]
+
 
         response = {}
         resource_id = properties["resource_id"]
@@ -269,6 +273,7 @@ class SecurityManager(AbstractManager):
                 disable_port_security = False
                 # response.append(json.dumps({"download_link": link}))
             else:
+                testbed = properties["testbed"]
                 vnfd = {}
                 with open("%s/vnfd.json" % tmp_files_path, "r") as fd:
                     vnfd = json.loads(fd.read())
@@ -276,7 +281,7 @@ class SecurityManager(AbstractManager):
                 vnfd["name"] += ("-%s" % random_id)
                 vnfd["type"] = vnfd["name"]
 
-                vnfd["vdu"][0]["vimInstanceName"] = ["vim-instance-%s" % properties["testbed"]]
+                vnfd["vdu"][0]["vimInstanceName"] = ["vim-instance-%s" % testbed]
 
                 '''
 
@@ -324,10 +329,85 @@ class SecurityManager(AbstractManager):
                     disable_port_security = False
                     response["NSR Details"] = "ERROR: %s" % message
 
+        elif resource_id == "pfsense" :
+            testbed = properties["testbed"]
+            os_project_id = user_info.os_project_id #TODO testbed_tenants[TESTBED_MAPPING[testbed]]
+            password = user_info.password
+
+            openstack = OSclient(testbed, username, os_project_id)
+            try:
+                response = {}
+                ret = openstack.deploy_pfSense({"wan": properties["wan_name"], "lan": properties["lan_name"]})
+
+                pf_sense_ip = ret["ip"]
+                os_instance_id = ret["id"]
+
+                response["ip"] = pf_sense_ip
+
+                """Allow forwarding on pfSense"""
+                openstack.allow_forwarding(os_instance_id)
+
+                update = False
+                disable_port_security = False
+
+                # TODO asynchronous tasks?
+
+                fauxapi_apikey = get_config("pfsense", "fauxapi-apikey", config_path)
+                fauxapi_apisecret = get_config("pfsense", "fauxapi-apisecret", config_path)
+
+                response["FauxAPI-ApiKey"] = fauxapi_apikey
+                response["FauxAPI-ApiSecret"] = fauxapi_apisecret
+
+                api = FauxapiLib(pf_sense_ip, fauxapi_apikey, fauxapi_apisecret, debug=True)
+
+                reachable = False
+                while not reachable:
+                    try:
+                        config = api.config_get()
+                        reachable = True
+                    except requests.exceptions.ConnectionError:
+                        print("Not Reachable")
+                        time.sleep(2)
+
+                u = config["system"]["user"][0]
+
+                u["name"] = username
+                hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+                bic = hashed.decode()
+                u["bcrypt-hash"] = bic
+
+                # TODO Add to config command that stores the FauxAPI Key
+                credentials_file = "/etc/fauxapi/credentials.ini"
+                local_script_path = "/etc/softfire/security-manager/inject_credentials"
+                pfsense_script_path = "/root/inject_credentials"
+
+                ssh = SSHClient()
+                ssh.set_missing_host_key_policy(AutoAddPolicy())
+                ssh.load_system_host_keys()
+                ssh.connect(hostname=pf_sense_ip, port=22, username="root", password="pfsense")
+                scp = SCPClient(ssh.get_transport())
+                scp.put(files=local_script_path, remote_path=pfsense_script_path)
+
+                # TODO setup right api-key
+                apisecret_value = random_string(60)
+                config["system"]["shellcmd"] = [
+                    "sh {0} {1} {2} {3}".format(pfsense_script_path, credentials_file, username, apisecret_value)]
+
+                time.sleep(10)
+                api.config_set(config)
+                api.config_reload()
+                api.system_reboot()
+            except Exception as e:
+                logger.error(e)
+
+
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
         query = "INSERT INTO resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, to_update, disable_port_security) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % \
-                (username, resource_id, properties["testbed"], ob_project_id, nsr_id, nsd_id, random_id, update, disable_port_security)
+                (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, update, disable_port_security)
+        query = "INSERT INTO resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, os_project_id, os_instance_id, to_update, disable_port_security) \
+        VALUES ('{0}', '{1}', '{2}', '{3}', '{4}', '{5}', '{6}', '{7}', '{8}')"\
+            .format(username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security)
         logger.debug("Executing %s" % query)
 
         cur.execute(query)
@@ -420,29 +500,18 @@ class SecurityManager(AbstractManager):
                             logger.debug("Trying to disable port security on VM")
                             print(nsr_details)
 
-                            # TODO delete
-                            os_project_id = "4ba2740884e745879b5e48e34546ecd1" #ericsson test
-                            # os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[properties["testbed"]]]
-                            sess = openstack_login(testbed, os_project_id)
-
-                            # nova = nova_client.Client(session=sess)
-                            neutron = neutron_client.Client(session=sess)
-                            # glance = glance_client.Client(2, session=sess)
+                            openstack = OSclient(testbed, "", os_project_id)
 
                             for vnfr in nsr_details["vnfr"]:
 
                                 for vdu in vnfr["vdu"]:
                                     for vnfc_instance in vdu["vnfc_instance"]:
-                                        MY_SERVER_ID = vnfc_instance["vc_id"]
-                                        logger.debug("Trying to disable port security on VM with UUID: %s" % MY_SERVER_ID)
-                                        MY_SERVER_ID = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
+                                        #MY_SERVER_ID = vnfc_instance["vc_id"]
 
-                                        interface_list = neutron.list_ports(device_id=MY_SERVER_ID)["ports"]
-                                        for i in interface_list:
-                                            print(i)
-                                            ret = neutron.update_port(i["id"], {"port":{"port_security_enabled": False, "security_groups" : []}})
-                                            logger.debug(ret)
-                                            disable_port_security = "False"
+                                        server_id = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
+                                        logger.debug("Trying to disable port security on VM with UUID: %s" % server_id)
+                                        openstack.allow_forwarding(server_id)
+                                        disable_port_security = "False"
                             query = "UPDATE resources SET disable_port_security = '%s' WHERE username = '%s' AND ob_nsr_id = '%s'" \
                                     % (disable_port_security, username, nsr_id)
                             execute_query(self.resources_db, query)
@@ -515,3 +584,29 @@ class SecurityManager(AbstractManager):
         conn.close()
 
         return
+
+if __name__ == "__main__":
+    from eu.softfire.sec.utils.utils import config_path
+    import os
+
+    class UserInfo :
+        def __init__(self, username, password, os_project_id, ob_project_id):
+            self.name = username
+            self.password = password
+            self.os_project_id = os_project_id
+            self.ob_project_id = ob_project_id
+
+    os.environ["http_proxy"] = ""
+    user = UserInfo("experimenter", "password", "e9b85df7d3dc4f50b9dfb608df270533", "")
+    resource = """properties:
+        resource_id: pfsense
+        testbed: reply
+        wan_name: my_personal
+        lan_name: test
+        """
+    sec = SecurityManager(config_path)
+
+    sec.provide_resources(user, payload=resource)
+
+
+
