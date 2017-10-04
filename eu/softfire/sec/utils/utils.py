@@ -7,8 +7,6 @@ import time
 from threading import Thread
 import sqlite3
 
-from keystoneauth1 import identity, session, loading
-
 from org.openbaton.cli.agents.agents import OpenBatonAgentFactory
 from sdk.softfire.utils import *
 
