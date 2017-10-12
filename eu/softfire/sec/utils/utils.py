@@ -7,17 +7,16 @@ import time
 from threading import Thread
 import sqlite3
 
-from org.openbaton.cli.agents.agents import OpenBatonAgentFactory
 from sdk.softfire.utils import *
 
 config_path = '/etc/softfire/security-manager.ini'
-
 
 class UpdateStatusThread(Thread):
     def __init__(self, manager):
         Thread.__init__(self)
         self.stopped = False
         self.manager = manager
+        self.logger = get_logger(config_path, __name__)
 
     def run(self):
         while not self.stopped:
@@ -26,9 +25,9 @@ class UpdateStatusThread(Thread):
                 try:
                     self.manager.send_update()
                 except Exception as e:
-                    logger = get_logger(config_path, __name__)
+
                     print("got error while updating resources: %s " % e)
-                    logger.error("got error while updating resources: %s " % e)
+                    self.logger.error("got error while updating resources: %s " % e)
                     self.manager.send_update()
 
     def stop(self):
@@ -37,158 +36,12 @@ class UpdateStatusThread(Thread):
 
 def get_logger(config_path, name):
     logging.config.fileConfig(config_path)
-    return logging.getLogger(name)
+    l = logging.getLogger(name)
+    return l
 
 
 def random_string(size):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(size))
-
-class OBClient :
-
-    def __init__(self, project_id):
-        ob_conf = get_config_parser(config_path)["open-baton"]
-
-        self.project_id = project_id
-        '''Open Baton Login'''
-        self.agent = OpenBatonAgentFactory(nfvo_ip=ob_conf["ip"], nfvo_port=int(ob_conf["port"]),
-                                      https=(ob_conf["https"] == "True"), version=int(ob_conf["version"]),
-                                      username=ob_conf["username"], password=ob_conf["password"],
-                                      project_id=project_id)
-
-
-    def deploy_package(self, path, body : dict={}, resource_type=None):
-        '''Open Baton Login'''
-        agent = self.agent
-        project_id = self.project_id
-
-        '''Upload the VNFP'''
-        vnfp_agent = agent.get_vnf_package_agent(project_id=project_id)
-        vnfp = vnfp_agent.create(path)
-
-        '''Create and upload the NSD'''
-        # nsd_file_path = "etc/resources/nsd-fw.json"
-
-        remote_url = get_config("remote-files", "url", config_path)
-
-        # r = requests.get("%s/nsd-fw.json" % remote_url)
-        r = requests.get("%s/nsd-%s.json" % (remote_url, resource_type))
-        print(r)
-        nsd = json.loads(r.text)
-
-        nsd_agent = agent.get_ns_descriptor_agent(project_id)
-        '''
-		nsd = {}
-		with open(nsd_file_path, "r") as fd:
-			nsd = json.load(fd)
-		'''
-        nsd["vnfd"] = [{"id": vnfp["id"]}]
-        print(nsd)
-        nsd = nsd_agent.create(json.dumps(nsd))
-
-        '''Deploy of the NSR'''
-        nsr_agent = agent.get_ns_records_agent(project_id=project_id)
-        nsr = nsr_agent.create(nsd["id"], json.dumps(body))
-
-        nsr_details = nsr_agent.find(nsr["id"])
-
-        return nsr_details
-
-    def delete_ns(self, nsr_id, nsd_id):
-        agent = self.agent
-        project_id = self.project_id
-        nsr_agent = agent.get_ns_records_agent(project_id=project_id)
-        nsr_agent.delete(nsr_id)
-
-        nsd_agent = agent.get_ns_descriptor_agent(project_id)
-        time.sleep(5)  # Give Open Baton time to process the request
-        nsd_agent.delete(nsd_id)
-
-
-
-    def import_key(self, ssh_pub_key, name):
-        agent = self.agent
-        project_id = self.project_id
-        key_agent = agent.get_key_agent(project_id)
-        for key in json.loads(key_agent.find()):
-            print(key)
-            if key.get('name') == name:
-                key_agent.delete(key.get('id'))
-                break
-
-        key_agent.create(json.dumps({"name": name, "projectId": project_id, "publicKey": ssh_pub_key}))
-
-"""
-def deploy_package(path, project_id, body={}, resource_type=None):
-
-    '''Open Baton Login'''
-    agent = ob_login(project_id)
-
-    '''Upload the VNFP'''
-    vnfp_agent = agent.get_vnf_package_agent(project_id=project_id)
-    vnfp = vnfp_agent.create(path)
-
-    '''Create and upload the NSD'''
-    #nsd_file_path = "etc/resources/nsd-fw.json"
-
-    remote_url = get_config("remote-files", "url", config_path)
-
-    #r = requests.get("%s/nsd-fw.json" % remote_url)
-    r = requests.get("%s/nsd-%s.json" % (remote_url, resource_type))
-    nsd = json.loads(r.text)
-
-    nsd_agent = agent.get_ns_descriptor_agent(project_id)
-    '''
-    nsd = {}
-    with open(nsd_file_path, "r") as fd:
-        nsd = json.load(fd)
-    '''
-    nsd["vnfd"] = [{"id": vnfp["id"]}]
-    print(nsd)
-    nsd = nsd_agent.create(json.dumps(nsd))
-
-    '''Deploy of the NSR'''
-    nsr_agent = agent.get_ns_records_agent(project_id=project_id)
-    nsr = nsr_agent.create(nsd["id"], json.dumps(body))
-
-    nsr_details = nsr_agent.find(nsr["id"])
-
-    '''Assuming 1 VNFR, 1 VDU, 1 VNC_Instance, 1 Floating IP'''
-    # floating_ip = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]
-    floating_ip = "test"
-    return nsr_details
-
-
-def delete_ns(nsr_id, nsd_id, project_id):
-    agent = ob_login(project_id)
-    nsr_agent = agent.get_ns_records_agent(project_id=project_id)
-    nsr_agent.delete(nsr_id)
-
-    nsd_agent = agent.get_ns_descriptor_agent(project_id)
-    time.sleep(5)  # Give Open Baton time to process the request
-    nsd_agent.delete(nsd_id)
-
-
-def ob_login(project_id):
-    ob_conf = get_config_parser(config_path)["open-baton"]
-
-    '''Open Baton Login'''
-    agent = OpenBatonAgentFactory(nfvo_ip=ob_conf["ip"], nfvo_port=int(ob_conf["port"]),
-                                  https=(ob_conf["https"] == "True"), version=int(ob_conf["version"]),
-                                  username=ob_conf["username"], password=ob_conf["password"], project_id=project_id)
-    return agent
-
-def ob_import_key(project_id, ssh_pub_key, name):
-    agent = ob_login(project_id)
-    key_agent = agent.get_key_agent(project_id)
-    for key in json.loads(key_agent.find()):
-        print(key)
-        if key.get('name') == name:
-            key_agent.delete(key.get('id'))
-            break
-
-    key_agent.create(json.dumps({"name": name, "projectId": project_id, "publicKey": ssh_pub_key}))
-
-"""
 
 def add_rule_to_fw(fd, rule):
     fd.write("curl -X POST -H \"Content-Type: text/plain\" -d '%s' http://localhost:5000/ufw/rules\n" % rule)

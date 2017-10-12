@@ -5,15 +5,15 @@ import json
 from keystoneauth1 import identity
 from keystoneauth1 import session
 from keystoneauth1 import loading
-from neutronclient.v2_0 import client as nclient
 from novaclient import client as nova_client
-from novaclient.exceptions import NotFound
 from glanceclient import client as glance_client
 from neutronclient.v2_0 import client as neutron_client
 
 import bcrypt
 import hashlib
 import time
+
+logger = utils.get_logger(utils.config_path, __name__)
 
 class OSclient :
 
@@ -53,10 +53,16 @@ class OSclient :
 			)
 
 		self.os_session = session.Session(auth=auth)
+
 		self.nova = nova_client.Client(2, session=self.os_session)
 		self.neutron = neutron_client.Client(session=self.os_session)
-		self.glance = glance_client.Client(2, session=self.os_session)
-		#return os_session
+
+	def get_fl_ip_from_id(self, instance_id):
+		s = self.nova.servers.get(instance_id)
+		for v in s.addresses.values():
+			for a in v:
+				if a["OS-EXT-IPS:type"] == "floating":
+					return a["addr"]
 
 	def deploy_pfSense(self, selected_networks: dict):
 		image_name = utils.get_config("pfsense", "image_name", utils.config_path)
@@ -72,20 +78,20 @@ class OSclient :
 
 		for network in net_names:
 			if network in network_names:
-				print("network found {}".format(network))
+				logger.debug("network found {}".format(network))
 			else:
-				print("network not found, trying to create it")
+				logger.debug("network not found, trying to create it")
 
 				kwargs = {'network': {
 					'name': network,
 					'shared': False,
 					'admin_state_up': True
 				}}
-				print("Creating net {}".format(network))
+				logger.debug("Creating net {}".format(network))
 
 				network_ = self.neutron.create_network(body=kwargs)['network']
 
-				print("net created {}".format(network_))
+				logger.debug("net created {}".format(network_))
 				rand_num = int(hashlib.sha1(self.exp_username).hexdigest(), base=16) % 254 + 1
 				kwargs = {
 					'subnets': [
@@ -101,7 +107,7 @@ class OSclient :
 					]
 				}
 				subnet = self.neutron.create_subnet(body=kwargs)
-				print("Created subnet {}".format(subnet))
+				logger.debug("Created subnet {}".format(subnet))
 
 				router = self.neutron.list_routers(name=router_name, tenant_id=self.exp_tenant_id)["routers"][0]
 				router_id = router['id']
@@ -111,7 +117,7 @@ class OSclient :
 
 				self.neutron.add_interface_router(router=router_id, body=body_value)
 
-				print("network successfully created and configured")
+				logger.debug("network successfully created and configured")
 
 		new_server = self.nova.servers.create(
 			name=extended_name,
@@ -121,7 +127,7 @@ class OSclient :
 			      net_names]
 		)
 		id = new_server.id
-		print("zabbix server created, id is {}".format(id))
+		logger.debug("pfSense created, id is {}".format(id))
 
 		openstack_build_timeout = float(240.0)  # seconds
 		wait_quantum = 0.3  # seconds
@@ -131,7 +137,8 @@ class OSclient :
 		while True:
 			new_server = self.nova.servers.get(id)
 			status = new_server.status
-			print("zabbix attempt {} server status: {}".format(current_attempt, status))
+
+			#logger.debug("zabbix attempt {} server status: {}".format(current_attempt, status))
 			if status != "BUILD":
 				break
 			time.sleep(wait_quantum)
@@ -140,6 +147,7 @@ class OSclient :
 			if current_attempt > max_attempts:
 				raise OpenStackDeploymentError(message="Timeout in openstack server building process")
 
+		logger.debug("pfSense instance is ACTIVE")
 		floating_ip_to_add = None
 		flips = self.neutron.list_floatingips()
 		for ip in flips["floatingips"]:
@@ -152,23 +160,24 @@ class OSclient :
 				break
 
 		if floating_ip_to_add:
-			print("adding floating ip {}".format(floating_ip_to_add))
 			new_server.add_floating_ip(floating_ip_to_add)
-			print("floating ip added")
+			logger.debug("floating ip {0} added".format(floating_ip_to_add))
 		else:
-			print("UNABLE TO ASSOCIATE")
+			OpenStackDeploymentError(message="Unable to associate Floating IP")
 
 		return {"id" : id, "ip" : floating_ip_to_add}
 
 	def delete_server(self, server_id):
+		logger.debug("Deleting server {0}".format(server_id))
 		s = self.nova.servers.get(server_id)
 		s.delete()
 
 	def allow_forwarding(self, server_id):
+		logger.debug("")
 		interface_list = self.neutron.list_ports(device_id=server_id)["ports"]
 		for i in interface_list:
 			# ret = neutron.update_port(i["id"], {"port":{"port_security_enabled": False, "security_groups" : []}})
-			ret = self.neutron.update_port(i["id"], {
+			self.neutron.update_port(i["id"], {
 				"port": {"allowed_address_pairs": [{"ip_address": "0.0.0.0/0", "mac_address": i["mac_address"]}]}})
 			#self.logger.debug(ret)
 
