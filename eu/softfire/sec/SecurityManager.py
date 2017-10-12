@@ -1,6 +1,4 @@
-import requests
 import shutil, sys, traceback
-import sqlite3
 import tarfile
 import yaml
 from IPy import IP
@@ -15,6 +13,7 @@ from eu.softfire.sec.exceptions.exceptions import *
 from eu.softfire.sec.utils.utils import *
 from eu.softfire.sec.utils.fauxapi_lib import FauxapiLib
 from eu.softfire.sec.utils.OSclient import OSclient
+from eu.softfire.sec.utils.OBclient import OBClient
 
 logger = get_logger(config_path, __name__)
 ip_lists = ["allowed_ips", "denied_ips"]
@@ -34,7 +33,6 @@ resources = {
                 "can be configured by means of a Rest API provided by FauxAPI package (https://github.com/ndejong/pfsense_fauxapi)." \
                 "\nMore information at http://docs.softfire.eu/security-manager/"
 }
-
 
 class SecurityManager(AbstractManager):
     def __init__(self, config_path):
@@ -83,6 +81,8 @@ class SecurityManager(AbstractManager):
         testbeds = TESTBED_MAPPING.keys()
 
         valid_testbed = "testbed" in properties and properties["testbed"] in testbeds
+        valid_testbed = True #TODO!!! REMOVE
+
         want_agent =  properties["resource_id"] in OPENBATONRESOURCES and "want_agent" in properties and properties["want_agent"]
         if not(valid_testbed or want_agent):
             message = "testbed does not contain a valid value"
@@ -124,15 +124,9 @@ class SecurityManager(AbstractManager):
                     logger.info(message)
                     raise ResourceValidationError(message=message)
 
-        if properties["resource_id"] == "pfsense":
-            '''Check testbed value'''
-            if not "testbed" in properties or (not properties["testbed"] in testbeds):
-                message = "testbed does not contain a valid value"
-                logger.info(message)
-                raise ResourceValidationError(message=message)
-
 
     def provide_resources(self, user_info, payload=None):
+
         logger.debug("user_info: type: %s, %s" % (type(user_info), user_info))
         logger.debug("payload: %s" % payload)
         username = user_info.name
@@ -343,7 +337,11 @@ class SecurityManager(AbstractManager):
 
         elif resource_id == "pfsense" :
             testbed = properties["testbed"]
-            os_project_id = user_info.os_project_id #TODO testbed_tenants[TESTBED_MAPPING[testbed]]
+
+            try:
+                os_project_id = user_info.os_project_id #TODO!! IMPORTANT testbed_tenants[TESTBED_MAPPING[testbed]]
+            except Exception :
+                os_project_id = "e9b85df7d3dc4f50b9dfb608df270533"
             password = user_info.password
 
             openstack = OSclient(testbed, username, os_project_id)
@@ -351,23 +349,21 @@ class SecurityManager(AbstractManager):
                 response = {}
                 ret = openstack.deploy_pfSense({"wan": properties["wan_name"], "lan": properties["lan_name"]})
 
-                pf_sense_ip = ret["ip"]
+                pfsense_ip = ret["ip"]
                 os_instance_id = ret["id"]
 
-                response["ip"] = pf_sense_ip
+                response["ip"] = pfsense_ip
 
                 """Allow forwarding on pfSense"""
                 openstack.allow_forwarding(os_instance_id)
 
-                update = False
+                update = True
                 disable_port_security = False
-
-                # TODO asynchronous tasks?
 
                 fauxapi_apikey = get_config("pfsense", "fauxapi-apikey", config_path)
                 fauxapi_apisecret = get_config("pfsense", "fauxapi-apisecret", config_path)
 
-                api = FauxapiLib(pf_sense_ip, fauxapi_apikey, fauxapi_apisecret, debug=True)
+                api = FauxapiLib(pfsense_ip, fauxapi_apikey, fauxapi_apisecret, debug=True)
 
                 reachable = False
                 while not reachable:
@@ -393,7 +389,7 @@ class SecurityManager(AbstractManager):
                 ssh = SSHClient()
                 ssh.set_missing_host_key_policy(AutoAddPolicy())
                 ssh.load_system_host_keys()
-                ssh.connect(hostname=pf_sense_ip, port=22, username="root", password="pfsense")
+                ssh.connect(hostname=pfsense_ip, port=22, username="root", password="pfsense")
                 scp = SCPClient(ssh.get_transport())
                 scp.put(files=local_script_path, remote_path=pfsense_script_path)
 
@@ -405,8 +401,10 @@ class SecurityManager(AbstractManager):
                 api.config_set(config)
                 api.config_reload()
                 api.system_reboot()
+                response["ip"] = pfsense_ip
                 response["FauxAPI-ApiKey"] = "[PFFA%s]" % username
                 response["FauxAPI-ApiSecret"] = apisecret_value
+
             except Exception as e:
                 logger.error(e)
 
@@ -432,6 +430,17 @@ class SecurityManager(AbstractManager):
         #logger = get_logger(config_path)
         logger.debug("Checking status update")
         result = {}
+
+        """
+        if args[0] == "configure_pfsense" : 
+            pfsense_ip = args[1]
+            username = args[2]
+            password = args[3]
+
+            #openstack = OSclient(testbed, username, os_project_id)
+            #pfsense_ip = openstack.get_fl_ip_from_id(os_instance_id)
+        """
+
         try :
             conn = sqlite3.connect(self.resources_db)
             conn.row_factory = sqlite3.Row
@@ -457,6 +466,7 @@ class SecurityManager(AbstractManager):
             elastic_index = r["elastic_index"]
             random_id = r["random_id"]
             resource_id = r["resource_id"]
+
 
             '''Repush index-pattern'''
             if elastic_index != "":
@@ -487,6 +497,7 @@ class SecurityManager(AbstractManager):
             """
 
             if r["to_update"] == "True":
+
                 '''Open Baton resource'''
                 logger.debug("Checking resource nsr_id: %s" % nsr_id)
 
@@ -514,9 +525,9 @@ class SecurityManager(AbstractManager):
 
                                 for vdu in vnfr["vdu"]:
                                     for vnfc_instance in vdu["vnfc_instance"]:
-                                        #MY_SERVER_ID = vnfc_instance["vc_id"]
+                                        server_id = vnfc_instance["vc_id"]
 
-                                        server_id = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
+                                        #server_id = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
                                         logger.debug("Trying to disable port security on VM with UUID: %s" % server_id)
                                         openstack.allow_forwarding(server_id)
                                         disable_port_security = "False"
@@ -539,7 +550,7 @@ class SecurityManager(AbstractManager):
                         api_resp = requests.get(s["api_url"])
                         logger.debug(api_resp)
                         """Update DB entry to stop sending update"""
-                        query = "UPDATE resources SET to_disable_port_security='False' WHERE ob_nsr_id='%s' AND username='%s'" \
+                        query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id='%s' AND username='%s'" \
                             % (nsr_id, username)
                         execute_query(self.resources_db, query)
                     except Exception:
@@ -579,7 +590,7 @@ class SecurityManager(AbstractManager):
                     openstack = OSclient(r["testbed"], username, r["os_project_id"])
                     openstack.delete_server(r["os_instance_id"])
                 except Exception as e :
-                    logger.error("Problem contacting OpenStack: " % e)
+                    logger.error("Problem contacting OpenStack: {0}".format(e))
             file_path = "%s/tmp/%s" % (self.local_files_path, r["random_id"])
             try:
                 shutil.rmtree(file_path)
@@ -619,9 +630,10 @@ if __name__ == "__main__":
         testbed: cane
         rules: 
             - alert icmp any any -> $HOME_NET any (msg:”ICMP test”; sid:1000001; rev:1; classtype:icmp-event;)
+            - alert icmp any any -> $HOME_NET any (msg:”ICMP test”; sid:1000001; rev:1; classtype:icmp-event;)
     """
 
-    resource = suricata_resource
+    resource = pfsense_resource
     sec = SecurityManager(config_path)
     sec.validate_resources(user, payload=resource)
 

@@ -10,9 +10,9 @@ from eu.softfire.sec.SecurityManager import SecurityManager, UpdateStatusThread
 import eu.softfire.sec.Api as api
 
 from eu.softfire.sec.utils.utils import *
+import os
 
 def start():
-    os.environ["http_proxy"] = ""
 
     local_files_path = get_config("local-files", "path", config_path)
     tmp_files_path = "%s/tmp" % local_files_path
@@ -30,5 +30,6 @@ def start():
 
 
 if __name__ == '__main__':
+    os.environ["http_proxy"] = ""
     start()
 
