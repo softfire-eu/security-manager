@@ -94,7 +94,7 @@ SecurityResource:
         allowed_ips:
             type: list
             entry_schema:
-                type: stringThis node type
+                type: string
             required: false
             description: valid for firewall
         
@@ -111,7 +111,9 @@ SecurityResource:
             description: valid for firewall
         
         rules: 
-            type: 
+            type: list
+            entry_schema:
+                type: string 
             required: false
             description: valid for suricata
 ```

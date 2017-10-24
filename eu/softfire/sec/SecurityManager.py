@@ -154,6 +154,7 @@ class SecurityManager(AbstractManager):
         response = {}
         resource_id = properties["resource_id"]
 
+
         if resource_id in OPENBATONRESOURCES :
             ob_project_id = user_info.ob_project_id
             logger.debug("Got Open Baton project id %s" % ob_project_id)
@@ -342,6 +343,8 @@ class SecurityManager(AbstractManager):
                 os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[testbed]]
             except Exception :
                 os_project_id = "e9b85df7d3dc4f50b9dfb608df270533"
+            if os_project_id == "" : #TODO ELIMINARE!!
+                os_project_id = "4affafec75eb4c729af158b5ab113156"
             password = user_info.password
 
             openstack = OSclient(testbed, username, os_project_id)
@@ -408,6 +411,13 @@ class SecurityManager(AbstractManager):
             except Exception as e:
                 logger.error(e)
 
+        try:
+            os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[testbed]]
+        except Exception:
+            os_project_id = ""
+
+        # TODO ELIMINARE!!
+        os_project_id = "4affafec75eb4c729af158b5ab113156"
 
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
