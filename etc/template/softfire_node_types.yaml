@@ -35,66 +35,66 @@ node_types:
   PhysicalResource:
     derived_from: eu.softfire.BaseResource
     description: "Defines a Physical resource request in the SoftFIRE Middleware"
-	SecurityResource:
+  SecurityResource:
     derived_from: eu.softfire.BaseResource
     description: "Defines a Security agent to be deployed. More details on [docu_url]"
     properties:
 
-			resource_id:
-				type: string
-				required: true
+      resource_id:
+        type: string
+        required: true
 
-			testbed:
-				type: string
-				required: false
+      testbed:
+        type: string
+        required: false
 
-			lan_name:
-				type: string
-				required: false
+      lan_name:
+        type: string
+        required: false
 
-			wan_name: 
-				type: string
-				required: false
-				description: valid for pfsense
+      wan_name: 
+        type: string
+        required: false
+        description: valid for pfsense
 
-			ssh_key:
-				type: string
-				required: false
-				description: valid for firewall and suricata
+      ssh_key:
+        type: string
+        required: false
+        description: valid for firewall and suricata
 
-			want_agent:
-				type: boolean
-				required: false
-				description: valid for firewall and suricata
-		 
-			logging:
-				type: boolean
-				required: false
-				description: valid for firewall and suricata
-			
-			allowed_ips:
-				type: list
-				entry_schema:
-					type: stringThis node type
-				required: false
-				description: valid for firewall
-			
-			denied_ips:
-				type: list
-				entry_schema:
-					type: string
-				required: false
-				description: valid for firewall
-			
-			default_rule:
-				type: string
-				required: false
-				description: valid for firewall
-			
-			rules: 
-				type: 
-				required: false
-				description: valid for suricata
+      want_agent:
+        type: boolean
+        required: false
+        description: valid for firewall and suricata
+     
+      logging:
+        type: boolean
+        required: false
+        description: valid for firewall and suricata
+      
+      allowed_ips:
+        type: list
+        entry_schema:
+          type: stringThis node type
+        required: false
+        description: valid for firewall
+      
+      denied_ips:
+        type: list
+        entry_schema:
+          type: string
+        required: false
+        description: valid for firewall
+      
+      default_rule:
+        type: string
+        required: false
+        description: valid for firewall
+      
+      rules: 
+        type: 
+        required: false
+        description: valid for suricata
 
   eu.softfire.BaseResource:
     derived_from: tosca.nodes.Root
