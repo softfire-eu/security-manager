@@ -339,7 +339,7 @@ class SecurityManager(AbstractManager):
             testbed = properties["testbed"]
 
             try:
-                os_project_id = user_info.os_project_id #TODO!! IMPORTANT testbed_tenants[TESTBED_MAPPING[testbed]]
+                os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[testbed]]
             except Exception :
                 os_project_id = "e9b85df7d3dc4f50b9dfb608df270533"
             password = user_info.password
@@ -520,6 +520,8 @@ class SecurityManager(AbstractManager):
                             print(nsr_details)
 
                             openstack = OSclient(testbed, "", os_project_id)
+                            print(testbed)
+                            print(os_project_id)
 
                             for vnfr in nsr_details["vnfr"]:
 
@@ -535,7 +537,7 @@ class SecurityManager(AbstractManager):
                                     % (disable_port_security, username, nsr_id)
                             execute_query(self.resources_db, query)
                         except Exception as e:
-                            logger.error("Error disabling port security")
+                            logger.error("Error disabling port security: {0}".format(e))
 
                 except Exception as e:
                     logger.error("Error contacting Open Baton to check resource status, nsr_id: %s\n%s" % (nsr_id, e))

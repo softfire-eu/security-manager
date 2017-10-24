@@ -175,10 +175,12 @@ class OSclient :
     def allow_forwarding(self, server_id):
         logger.debug("")
         interface_list = self.neutron.list_ports(device_id=server_id)["ports"]
+        global ret
         for i in interface_list:
             # ret = neutron.update_port(i["id"], {"port":{"port_security_enabled": False, "security_groups" : []}})
-            self.neutron.update_port(i["id"], {"port": {"allowed_address_pairs": [{"ip_address": "0.0.0.0/0", "mac_address": i["mac_address"]}]}})
-            #self.logger.debug(ret)
+            ret = self.neutron.update_port(i["id"], {"port": {"allowed_address_pairs": [{"ip_address": "0.0.0.0/0", "mac_address": i["mac_address"]}]}})
+            logger.debug(ret)
+            print(ret)
 
     def upload_image(self, image_name, path):
         i = self.glance.images.create(name=image_name, disk_format="qcow2", container_format="bare", visibility="public", protected=True)
