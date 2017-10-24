@@ -1,0 +1,110 @@
+description: "SoftFIRE Node Types definitions"
+tosca_definitions_version: tosca_simple_yaml_1_0
+node_types:
+  MonitoringResource:
+    derived_from: eu.softfire.BaseResource
+    description: "Defines the Zabbix monitoring resource requested"
+    properties:
+      lan_name:
+        description: "Network to attach the server"
+        type: string
+      testbed:
+        description: "Location where to deploy the monitoring server"
+        required: false
+        type: string
+  NfvResource:
+    derived_from: eu.softfire.BaseResource
+    description: "Defines a NFV resoruce request in the SoftFIRE Middleware"
+    properties:
+      ssh_pub_key:
+        required: false
+        type: string
+      file_name:
+        required: false
+        type: string
+      nsd_name:
+        type: string
+      testbeds:
+        entry_schema:
+          description: "mapping between vnf types and testbed. Or 'all':<testbed_name> for all in one"
+          type: string
+        type: map
+  SdnResource:
+    derived_from: eu.softfire.BaseResource
+    description: "Defines a SDN resource request in the SoftFIRE Middleware"
+  PhysicalResource:
+    derived_from: eu.softfire.BaseResource
+    description: "Defines a Physical resource request in the SoftFIRE Middleware"
+	SecurityResource:
+    derived_from: eu.softfire.BaseResource
+    description: "Defines a Security agent to be deployed. More details on [docu_url]"
+    properties:
+
+			resource_id:
+				type: string
+				required: true
+
+			testbed:
+				type: string
+				required: false
+
+			lan_name:
+				type: string
+				required: false
+
+			wan_name: 
+				type: string
+				required: false
+				description: valid for pfsense
+
+			ssh_key:
+				type: string
+				required: false
+				description: valid for firewall and suricata
+
+			want_agent:
+				type: boolean
+				required: false
+				description: valid for firewall and suricata
+		 
+			logging:
+				type: boolean
+				required: false
+				description: valid for firewall and suricata
+			
+			allowed_ips:
+				type: list
+				entry_schema:
+					type: stringThis node type
+				required: false
+				description: valid for firewall
+			
+			denied_ips:
+				type: list
+				entry_schema:
+					type: string
+				required: false
+				description: valid for firewall
+			
+			default_rule:
+				type: string
+				required: false
+				description: valid for firewall
+			
+			rules: 
+				type: 
+				required: false
+				description: valid for suricata
+
+  eu.softfire.BaseResource:
+    derived_from: tosca.nodes.Root
+    properties:
+      resource_id:
+        required: true
+        type: string
+      start-date:
+        required: false
+        type: string
+      end-date:
+        required: false
+        type: string
