@@ -71,7 +71,6 @@ class OSclient :
 
         networks = self.neutron.list_networks(tenant_id=self.exp_tenant_id)["networks"]
         network_names = [x["name"] for x in networks]
-        router_name = 'router' #TODO check conflicts
         net_names = [selected_networks["wan"], selected_networks["lan"]]
 
         #TODO cambiare tutte le print, mettere log e togliere riferimenti a Zabbix
@@ -92,7 +91,8 @@ class OSclient :
                 network_ = self.neutron.create_network(body=kwargs)['network']
 
                 logger.debug("net created {}".format(network_))
-                rand_num = int(hashlib.sha1(self.exp_username).hexdigest(), base=16) % 254 + 1
+                s = self.exp_username + network
+                rand_num = int(hashlib.sha1(s.encode('utf-8')).hexdigest(), base=16) % 254 + 1
                 kwargs = {
                     'subnets': [
                         {
@@ -109,7 +109,8 @@ class OSclient :
                 subnet = self.neutron.create_subnet(body=kwargs)
                 logger.debug("Created subnet {}".format(subnet))
 
-                router = self.neutron.list_routers(name=router_name, tenant_id=self.exp_tenant_id)["routers"][0]
+                #Get first router. If no router exists -> ERROR
+                router = self.neutron.list_routers(tenant_id=self.exp_tenant_id)["routers"][0]
                 router_id = router['id']
                 body_value = {
                     'subnet_id': subnet["subnets"][0]['id'],

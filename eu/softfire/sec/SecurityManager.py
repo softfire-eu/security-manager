@@ -154,6 +154,12 @@ class SecurityManager(AbstractManager):
         response = {}
         resource_id = properties["resource_id"]
 
+        if "testbed" in properties :
+            testbed = properties["testbed"]
+            try:
+                os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[testbed]]
+            except Exception:
+                os_project_id = ""
 
         if resource_id in OPENBATONRESOURCES :
             ob_project_id = user_info.ob_project_id
@@ -185,8 +191,8 @@ class SecurityManager(AbstractManager):
                 conn = sqlite3.connect(self.resources_db)
                 cur = conn.cursor()
 
-                query = "SELECT elastic_index, dashboard_id FROM elastic_indexes WHERE username='%s'" % (username)
-                res = cur.execute(query)
+                query = "SELECT elastic_index, dashboard_id FROM elastic_indexes WHERE username=?"
+                res = cur.execute(query, (username,))
                 row = res.fetchone()
                 dashboard_path = "%s/dashboard.html" % tmp_files_path
                 try:
@@ -204,10 +210,10 @@ class SecurityManager(AbstractManager):
                     except Exception as e:
                         logger.error("Error creating Kibana dashboard: %s" % e)
                         dashboard_id = ""
-                    query = "INSERT INTO elastic_indexes (username, elastic_index, dashboard_id) VALUES ('%s', '%s', '%s')" % \
-                            (username, elastic_index, dashboard_id)
+                    query = "INSERT INTO elastic_indexes (username, elastic_index, dashboard_id) VALUES (?, ?, ?)"
+
                     logger.debug("Executing %s" % query)
-                    cur.execute(query)
+                    cur.execute(query, (username, elastic_index, dashboard_id))
                     conn.commit()
 
                 conn.close()
@@ -280,7 +286,7 @@ class SecurityManager(AbstractManager):
                 update = False
                 disable_port_security = False
             else:
-                testbed = properties["testbed"]
+                #testbed = properties["testbed"]
                 vnfd = {}
                 with open("%s/vnfd.json" % tmp_files_path, "r") as fd:
                     vnfd = json.loads(fd.read())
@@ -337,14 +343,11 @@ class SecurityManager(AbstractManager):
                     response["NSR Details"] = "ERROR: %s" % message
 
         elif resource_id == "pfsense" :
-            testbed = properties["testbed"]
+            #testbed = properties["testbed"]
 
-            try:
-                os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[testbed]]
-            except Exception :
-                os_project_id = "e9b85df7d3dc4f50b9dfb608df270533"
-            if os_project_id == "" : #TODO ELIMINARE!!
-                os_project_id = "4affafec75eb4c729af158b5ab113156"
+            # TODO ELIMINARE!!
+            os_project_id = "4affafec75eb4c729af158b5ab113156"
+
             password = user_info.password
 
             openstack = OSclient(testbed, username, os_project_id)
@@ -411,10 +414,7 @@ class SecurityManager(AbstractManager):
             except Exception as e:
                 logger.error(e)
 
-        try:
-            os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[testbed]]
-        except Exception:
-            os_project_id = ""
+
 
         # TODO ELIMINARE!!
         os_project_id = "4affafec75eb4c729af158b5ab113156"
@@ -422,11 +422,11 @@ class SecurityManager(AbstractManager):
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
         query = "INSERT INTO resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, os_project_id, os_instance_id, to_update, disable_port_security) \
-        VALUES ('{0}', '{1}', '{2}', '{3}', '{4}', '{5}', '{6}', '{7}', '{8}', '{9}', '{10}')"\
-            .format(username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
         logger.debug("Executing %s" % query)
 
-        cur.execute(query)
+        cur.execute(query, (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security))
         conn.commit()
         conn.close()
 
@@ -506,7 +506,7 @@ class SecurityManager(AbstractManager):
             ###################
             """
 
-            if r["to_update"] == "True":
+            if r["to_update"] == True:
 
                 '''Open Baton resource'''
                 logger.debug("Checking resource nsr_id: %s" % nsr_id)
@@ -524,7 +524,7 @@ class SecurityManager(AbstractManager):
 
 
                     """Disable port security on VM's ports"""
-                    if disable_port_security == "True":
+                    if disable_port_security == True:
                         try:
                             logger.debug("Trying to disable port security on VM")
                             print(nsr_details)
@@ -543,9 +543,8 @@ class SecurityManager(AbstractManager):
                                         logger.debug("Trying to disable port security on VM with UUID: %s" % server_id)
                                         openstack.allow_forwarding(server_id)
                                         disable_port_security = "False"
-                            query = "UPDATE resources SET disable_port_security = '%s' WHERE username = '%s' AND ob_nsr_id = '%s'" \
-                                    % (disable_port_security, username, nsr_id)
-                            execute_query(self.resources_db, query)
+                            query = "UPDATE resources SET disable_port_security = ? WHERE username = ? AND ob_nsr_id = ?"
+                            execute_query(self.resources_db, query, (disable_port_security, username, nsr_id))
                         except Exception as e:
                             logger.error("Error disabling port security: {0}".format(e))
 
@@ -562,11 +561,17 @@ class SecurityManager(AbstractManager):
                         api_resp = requests.get(s["api_url"])
                         logger.debug(api_resp)
                         """Update DB entry to stop sending update"""
-                        query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id='%s' AND username='%s'" \
-                            % (nsr_id, username)
-                        execute_query(self.resources_db, query)
+                        query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
+                        execute_query(self.resources_db, query, (nsr_id, username))
                     except Exception:
                         s["status"] = "VM is running but API are unavailable"
+
+                if s["status"] == "ERORR":
+                    try :
+                        query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
+                        execute_query(self.resources_db, query, (nsr_id, username))
+                    except Exception as e:
+                        logger.error(e)
 
                 if username not in result.keys():
                     result[username] = []
@@ -586,8 +591,8 @@ class SecurityManager(AbstractManager):
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
-        query = "SELECT * FROM resources WHERE username = '%s'" % username
-        res = cur.execute(query)
+        query = "SELECT * FROM resources WHERE username = ?"
+        res = cur.execute(query, (username,))
         rows = res.fetchall()
         for r in rows:
             if r["ob_nsr_id"] != "" and r["ob_nsr_id"] != "ERROR":
@@ -599,6 +604,7 @@ class SecurityManager(AbstractManager):
 
             if r["os_instance_id"] != "" :
                 try:
+                    logger.debug("Deleting resource with id: {0}".format(r["os_instance_id"]))
                     openstack = OSclient(r["testbed"], username, r["os_project_id"])
                     openstack.delete_server(r["os_instance_id"])
                 except Exception as e :
@@ -609,8 +615,8 @@ class SecurityManager(AbstractManager):
             except FileNotFoundError:
                 logger.error("FileNotFoud: %s" % file_path)
 
-        query = "DELETE FROM resources WHERE username = '%s'" % username
-        cur.execute(query)
+        query = "DELETE FROM resources WHERE username = ?"
+        cur.execute(query, (username,))
 
         conn.commit()
         conn.close()
