@@ -122,10 +122,10 @@ def store_kibana_dashboard(dashboard_path, collector_ip, kibana_port, dashboard_
             collector_ip, kibana_port, dashboard_id)
         dfd.write(html)
 
-def execute_query(db, query):
+def execute_query(db, query, args):
     conn = sqlite3.connect(db)
     cur = conn.cursor()
-    cur.execute(query)
+    cur.execute(query, args)
     conn.commit()
     conn.close()
 
