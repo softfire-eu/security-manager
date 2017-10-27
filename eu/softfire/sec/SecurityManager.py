@@ -81,7 +81,7 @@ class SecurityManager(AbstractManager):
         testbeds = TESTBED_MAPPING.keys()
 
         valid_testbed = "testbed" in properties and properties["testbed"] in testbeds
-        valid_testbed = True #TODO!!! REMOVE
+        #valid_testbed = True #TODO!!! REMOVE
 
         want_agent =  properties["resource_id"] in OPENBATONRESOURCES and "want_agent" in properties and properties["want_agent"]
         if not(valid_testbed or want_agent):
@@ -159,7 +159,7 @@ class SecurityManager(AbstractManager):
             try:
                 os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[testbed]]
             except Exception:
-                os_project_id = ""
+                os_project_id = user_info.os_project_id
 
         if resource_id in OPENBATONRESOURCES :
             ob_project_id = user_info.ob_project_id
@@ -346,7 +346,7 @@ class SecurityManager(AbstractManager):
             #testbed = properties["testbed"]
 
             # TODO ELIMINARE!!
-            os_project_id = "4affafec75eb4c729af158b5ab113156"
+            #os_project_id = "4affafec75eb4c729af158b5ab113156"
 
             password = user_info.password
 
@@ -369,13 +369,13 @@ class SecurityManager(AbstractManager):
                 fauxapi_apikey = get_config("pfsense", "fauxapi-apikey", config_path)
                 fauxapi_apisecret = get_config("pfsense", "fauxapi-apisecret", config_path)
 
+                #Initialize communication with ReST server pfSense (wait pfSense to be up and running)
                 api = FauxapiLib(pfsense_ip, fauxapi_apikey, fauxapi_apisecret, debug=True)
 
-                reachable = False
-                while not reachable:
+                for i in range(20):
                     try:
                         config = api.config_get()
-                        reachable = True
+                        break
                     except requests.exceptions.ConnectionError:
                         print("Not Reachable")
                         time.sleep(2)
@@ -413,11 +413,12 @@ class SecurityManager(AbstractManager):
 
             except Exception as e:
                 logger.error(e)
-
+                response["ip"] = "Error deploying pfSense"
+                return [json.dumps(response)]
 
 
         # TODO ELIMINARE!!
-        os_project_id = "4affafec75eb4c729af158b5ab113156"
+        #os_project_id = "4affafec75eb4c729af158b5ab113156"
 
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
@@ -627,6 +628,7 @@ if __name__ == "__main__":
     from eu.softfire.sec.utils.utils import config_path
     import os
 
+    #This is a test-case UserInfo to test the component whitout the Experiment Manager
     class UserInfo :
         def __init__(self, username, password, os_project_id, ob_project_id):
             self.name = username
@@ -649,9 +651,10 @@ if __name__ == "__main__":
         rules: 
             - alert icmp any any -> $HOME_NET any (msg:”ICMP test”; sid:1000001; rev:1; classtype:icmp-event;)
             - alert icmp any any -> $HOME_NET any (msg:”ICMP test”; sid:1000001; rev:1; classtype:icmp-event;)
+        logging: True
     """
 
-    resource = pfsense_resource
+    resource = suricata_resource
     sec = SecurityManager(config_path)
     sec.validate_resources(user, payload=resource)
 
