@@ -191,6 +191,7 @@ if __name__ == "__main__" :
     import sys
     import os
 
+    """Useful to upload the image to a testbed"""
     os.environ["http_proxy"] = ""
     argv = sys.argv
 
@@ -204,85 +205,5 @@ if __name__ == "__main__" :
 
         openstack = OSclient(testbed, "", tenant_id)
         openstack.upload_image(img_name, path)
-
-
-#	from eu.softfire.sec.utils.fauxapi_lib import FauxapiLib
-#	import requests
-#	import pprint
-#	from paramiko import SSHClient, AutoAddPolicy
-#	from scp import SCPClient
-#
-#	import os
-#
-#	os.environ["http_proxy"] = ""
-#
-#	testbed = "reply"
-#	username = "daniele"
-#	tenant_id = "e9b85df7d3dc4f50b9dfb608df270533"
-#
-#	openstack = OSclient(testbed, username, tenant_id)
-#	openstack.nova.glance.find_image("pfsense-softfire")
-#	try :
-#		ret = openstack.deploy_pfSense({ "wan" : "my_personal", "lan" : "test" })
-#	except Exception as e :
-#		print(e)
-#
-#	pf_sense_ip = ret["ip"]
-#	pf_sense_id = ret["id"]
-#
-#	openstack.allow_forwarding(pf_sense_id)
-#
-#	# TODO store in DataBase
-#	# TODO asynchronous tasks?
-#
-#	fauxapi_apikey = utils.get_config("pfsense", "fauxapi-apikey",utils.config_path, "PFFAsecuritymanager")
-#	fauxapi_apisecret = utils.get_config("pfsense", "fauxapi-apisecret", utils.config_path, "MIE3ev08qfaCLT9Ga51pDtYNzA84vuRv5CIpdHm80pPqlxzR5Cm4ByjxdcmH")
-#
-#	api = FauxapiLib(pf_sense_ip, fauxapi_apikey, fauxapi_apisecret, debug=True)
-#
-#	reachable = False
-#	while not reachable:
-#		try:
-#			config = api.config_get()
-#			reachable = True
-#		except requests.exceptions.ConnectionError:
-#			print("Not Reachable")
-#			time.sleep(2)
-#
-#	pprint.pprint(config)
-#	u = config["system"]["user"][0]
-#	exp_name = "daniele"  # TODO experimenter name
-#	password = "password"  # TODO experimenter password
-#
-#	u["name"] = exp_name
-#	hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-#	bic = hashed.decode()
-#	u["bcrypt-hash"] = bic
-#
-#	# TODO Add to config command that stores the FauxAPI Key
-#	credentials_file = "/etc/fauxapi/credentials.ini"
-#	local_script_path = "/etc/softfire/security-manager/inject_credentials"
-#	pfsense_script_path = "/root/inject_credentials"
-#
-#	ssh = SSHClient()
-#	ssh.set_missing_host_key_policy(AutoAddPolicy())
-#	ssh.load_system_host_keys()
-#	ssh.connect(hostname=pf_sense_ip, port=22, username="root", password="pfsense")
-#	scp = SCPClient(ssh.get_transport())
-#	scp.put(files=local_script_path, remote_path=pfsense_script_path)
-#
-#	# TODO setup right api-key
-#	apisecret_value = utils.random_string(60)
-#	config["system"]["shellcmd"] = [
-#		"sh {0} {1} {2} {3}".format(pfsense_script_path, credentials_file, exp_name, apisecret_value)]
-#
-#	pprint.pprint(config)
-#	time.sleep(10)
-#	api.config_set(config)
-#	api.config_reload()
-#	api.system_reboot()
-#
-#	time.sleep(300)
-#	openstack.delete_server(pf_sense_id)
 
 
