@@ -185,7 +185,7 @@ class SecurityManager(AbstractManager):
                 elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
                 dashboard_template = get_config("log-collector", "dashboard-template", config_path)
                 kibana_port = get_config("log-collector", "kibana-port", config_path)
-                logger.debug("Configuring logging")
+                logger.debug("Configuring logging. LEK_ip:{} - elastic_port:{} - kibana_port:{}".format(collector_ip, elastic_por, kibana_port))
 
                 '''Selection of the Elasticsearch Index'''
                 conn = sqlite3.connect(self.resources_db)
