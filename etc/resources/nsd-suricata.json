@@ -1,0 +1,12 @@
+{
+    "name":"NSD Security NIDS",
+    "vendor":"Security Reply",
+    "version":"1.0",
+    "description":"Single VM with Ubuntu and Suricata configured",
+    "vnfd":[
+        {
+            "id":"25a49951-1479-499e-954f-581965e5c330"
+        }
+    ]
+}
+
