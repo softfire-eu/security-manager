@@ -21,41 +21,57 @@ class OSclient :
         with open(os_credentials_file) as credentials_file:
             credentials = json.load(credentials_file)
         testbed_info = credentials[testbed]
-        self.admin_username = testbed_info["username"]
+
+        self.testbed_name = testbed
+        self.tenant_name = exp_username
+        self.project_id = exp_tenant_id
+        self.project_domain_name = testbed_info["project_domain_name"] or "Default"
+        self.user_domain_id = testbed_info['user_domain_id'] or 'Default'
+        self.api_version = testbed_info["api_version"]
+        self.username = testbed_info["username"]
         self.password = testbed_info["password"]
         self.auth_url = testbed_info["auth_url"]
-        self.ext_net = testbed_info["ext_net_name"]
-        self.api_version = testbed_info["api_version"]
-        self.domain_name = testbed_info["user_domain_name"]
-        self.exp_username = exp_username
-        self.exp_tenant_id = exp_tenant_id
+        if self.auth_url.endswith('/'):
+            self.auth_url = self.auth_url[:-1]
+        self.admin_tenant_name = testbed_info["admin_tenant_name"]
+        self.admin_project_id = testbed_info["admin_project_id"]
+
+
+        #self.ext_net = testbed_info["ext_net_name"]
+        #self.domain_name = testbed_info["user_domain_name"]
+        #self.exp_username = exp_username
+        #self.exp_tenant_id = exp_tenant_id
 
         #self.logger = utils.get_logger(utils.config_path, __name__)
 
-        if self.api_version == 2:
-            OSloader = loading.get_plugin_loader('password')
-            auth = OSloader.load_from_options(
-                auth_url=self.auth_url,
-                username=self.admin_username,
-                password=self.password,
-                tenant_name=exp_tenant_id,
-            )
+        #if self.api_version == 2:
+        #    OSloader = loading.get_plugin_loader('password')
+        #    auth = OSloader.load_from_options(
+        #        auth_url=self.auth_url,
+        #        username=self.admin_username,
+        #        password=self.password,
+        #        tenant_name=exp_tenant_id,
+        #    )
 
         if self.api_version == 3:
             auth = identity.v3.Password(
-                auth_url=self.auth_url,
-                username=self.admin_username,
-                password=self.password,
-                project_domain_name=self.domain_name,
-                user_domain_name=self.domain_name,
-                project_id=exp_tenant_id
+                auth_url = self.auth_url,
+                #username=self.admin_username,
+                username = self.username,
+                password = self.password,
+                project_id = self.project_id,
+                project_domain_name = self.project_domain_name,
+                #project_domain_name=self.domain_name,
+                #user_domain_name=self.domain_name,
+                user_domain_id = self.user_domain_id
+                #project_id=exp_tenant_id
             )
 
         self.os_session = session.Session(auth=auth)
 
-        self.nova = nova_client.Client(2, session=self.os_session)
+        self.nova = nova_client.Client("2.1", session=self.os_session)
         self.neutron = neutron_client.Client(session=self.os_session)
-        self.glance = glance_client.Client(2, session=self.os_session)
+        self.glance = glance_client.Client("1", session=self.os_session)
 
     def get_fl_ip_from_id(self, instance_id):
         s = self.nova.servers.get(instance_id)
@@ -177,7 +193,11 @@ class OSclient :
 
     def allow_forwarding(self, server_id):
         logger.debug("")
-        interface_list = self.neutron.list_ports(device_id=server_id)["ports"]
+        try:
+            interface_list = self.neutron.list_ports(device_id=server_id)["ports"]
+        except Exception as e:
+            print(e)
+        print(interface_list)
         global ret
         for i in interface_list:
             # ret = neutron.update_port(i["id"], {"port":{"port_security_enabled": False, "security_groups" : []}})

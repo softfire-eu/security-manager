@@ -450,8 +450,9 @@ class SecurityManager(AbstractManager):
         '''
         Return an array of JSON strings with information about the resources
         '''
-        logger.debug("Responding %s" % json.dumps(response))
-        return [json.dumps(response)]
+        #logger.debug("Responding %s" % json.dumps(response))
+        #return [json.dumps(response)]
+        return [json.dumps({"status": "NULL"})]
 
     def _update_status(self) -> dict:
         #logger = get_logger(config_path)
@@ -475,6 +476,13 @@ class SecurityManager(AbstractManager):
             query = "SELECT * FROM resources AS r JOIN elastic_indexes AS e ON r.username = e.username" # WHERE r.to_update='True'"
             res = cur.execute(query)
             rows = res.fetchall()
+            #work around
+            if not rows:
+                conn.row_factory = sqlite3.Row
+                cur = conn.cursor()
+                query = "SELECT * FROM resources" # WHERE r.to_update='True'"
+                res = cur.execute(query)
+                rows = res.fetchall()
         except Exception as e :
             logger.error("Problem reading the Resources DB: %s" % e)
             conn.close()
@@ -490,13 +498,15 @@ class SecurityManager(AbstractManager):
             os_instance_id = r["os_instance_id"]
             disable_port_security = r["disable_port_security"]
             username = r["username"]
-            elastic_index = r["elastic_index"]
+            elastic_index = None
+            if "elastic_index" in r:
+                elastic_index = r["elastic_index"]
             random_id = r["random_id"]
             resource_id = r["resource_id"]
 
 
             '''Repush index-pattern'''
-            if elastic_index != "":
+            if elastic_index and elastic_index != "":
                 link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path),
                                                       get_config("api", "port", config_file_path=config_path),
                                                       random_id)
@@ -541,29 +551,28 @@ class SecurityManager(AbstractManager):
 
 
                     """Disable port security on VM's ports"""
-                    if disable_port_security == True:
-                        try:
-                            logger.debug("Trying to disable port security on VM")
+                    #if disable_port_security == True:
+                    #    try:
+                    #        logger.debug("Trying to disable port security on VM")
 
-                            logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
-                            openstack = OSclient(testbed, "", os_project_id)
-                            print(testbed)
-                            print(os_project_id)
+                    #        logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
+                    #        openstack = OSclient(testbed, "", os_project_id)
+                    #        print(testbed)
+                    #        print(os_project_id)
 
-                            for vnfr in nsr_details["vnfr"]:
+                    #        for vnfr in nsr_details["vnfr"]:
+                    #            for vdu in vnfr["vdu"]:
+                    #                for vnfc_instance in vdu["vnfc_instance"]:
+                    #                    server_id = vnfc_instance["vc_id"]
 
-                                for vdu in vnfr["vdu"]:
-                                    for vnfc_instance in vdu["vnfc_instance"]:
-                                        server_id = vnfc_instance["vc_id"]
-
-                                        #server_id = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
-                                        logger.debug("Trying to disable port security on VM with UUID: %s" % server_id)
-                                        openstack.allow_forwarding(server_id)
-                                        disable_port_security = "False"
-                            query = "UPDATE resources SET disable_port_security = ? WHERE username = ? AND ob_nsr_id = ?"
-                            execute_query(self.resources_db, query, (disable_port_security, username, nsr_id))
-                        except Exception as e:
-                            logger.error("Error disabling port security: {0}".format(e))
+                    #                    #server_id = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
+                    #                    logger.debug("Trying to disable port security on VM with UUID: %s" % server_id)
+                    #                    openstack.allow_forwarding(server_id)
+                    #                    disable_port_security = "False"
+                    #        query = "UPDATE resources SET disable_port_security = ? WHERE username = ? AND ob_nsr_id = ?"
+                    #        execute_query(self.resources_db, query, (disable_port_security, username, nsr_id))
+                    #    except Exception as e:
+                    #        logger.error("Error disabling port security: {0}".format(e))
 
                 except Exception as e:
                     logger.error("Error contacting Open Baton to check resource status, nsr_id: %s\n%s" % (nsr_id, e))
