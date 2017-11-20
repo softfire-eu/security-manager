@@ -34,8 +34,10 @@ class OBClient :
         remote_url = get_config("remote-files", "url", config_path)
 
         # r = requests.get("%s/nsd-fw.json" % remote_url)
+        logger.debug("requesting NSD for type: %s" % resource_type)
         r = requests.get("%s/nsd-%s.json" % (remote_url, resource_type))
-        print(r)
+        logger.debug(r)
+
         nsd = json.loads(r.text)
 
         nsd_agent = agent.get_ns_descriptor_agent(project_id)
@@ -45,7 +47,20 @@ class OBClient :
 			nsd = json.load(fd)
 		'''
         nsd["vnfd"] = [{"id": vnfp["id"]}]
-        print(nsd)
+        virtual_links = [{"name": "softfire-internal"}]
+        nsd["vld"] = virtual_links
+        for k in nsd.keys():
+            print("%s:%s" % (k, nsd[k]))
+
+#	nsd_dummy = {
+#                "name": "NSD Security Firewall",
+#                "version": "softfire_version",
+#                "vendor": "Security Reply",
+#                "vnfd": ,
+#                "vld": virtual_links}
+
+        with open("/tmp/nsd.json", "w") as nsd_f:
+            nsd_f.write(json.dumps(nsd))
         nsd = nsd_agent.create(json.dumps(nsd))
 
         '''Deploy of the NSR'''
