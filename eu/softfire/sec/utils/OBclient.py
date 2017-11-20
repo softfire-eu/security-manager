@@ -7,8 +7,6 @@ class OBClient :
 
     def __init__(self, project_id):
         ob_conf = get_config_parser(config_path)["open-baton"]
-        logger.debug(config_path)
-
 
         self.project_id = project_id
         '''Open Baton Login'''

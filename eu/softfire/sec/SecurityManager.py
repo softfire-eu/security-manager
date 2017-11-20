@@ -535,7 +535,7 @@ class SecurityManager(AbstractManager):
                     ob_resp = nsr_agent.find(nsr_id)
                     time.sleep(5)
                     nsr_details = json.loads(ob_resp)
-                    logger.debug(nsr_details)
+                    #logger.debug(nsr_details)
 
                     s["status"] = nsr_details["status"]
 
@@ -544,8 +544,8 @@ class SecurityManager(AbstractManager):
                     if disable_port_security == True:
                         try:
                             logger.debug("Trying to disable port security on VM")
-                            print(nsr_details)
 
+                            logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
                             openstack = OSclient(testbed, "", os_project_id)
                             print(testbed)
                             print(os_project_id)
@@ -595,7 +595,7 @@ class SecurityManager(AbstractManager):
                 result[username].append(json.dumps(s))
             else :
                 s = {}
-        logger.debug("Result: %s" % result)
+        #logger.debug("Result: %s" % result)
         return result
 
     def release_resources(self, user_info=None, payload=None):
