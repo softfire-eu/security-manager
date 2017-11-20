@@ -69,7 +69,9 @@ class OSclient :
         flavor = utils.get_config("pfsense", "flavor_name", utils.config_path)
         extended_name = "pfsense-" + utils.random_string(6)
 
+        print("STARTTTTT")
         networks = self.neutron.list_networks(tenant_id=self.exp_tenant_id)["networks"]
+        print("STop")
         network_names = [x["name"] for x in networks]
         net_names = [selected_networks["wan"], selected_networks["lan"]]
 

@@ -185,7 +185,7 @@ class SecurityManager(AbstractManager):
                 elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
                 dashboard_template = get_config("log-collector", "dashboard-template", config_path)
                 kibana_port = get_config("log-collector", "kibana-port", config_path)
-                logger.debug("Configuring logging. LEK_ip:{} - elastic_port:{} - kibana_port:{}".format(collector_ip, elastic_por, kibana_port))
+                logger.debug("Configuring logging. LEK_ip:{} - elastic_port:{} - kibana_port:{}".format(collector_ip, elastic_port, kibana_port))
 
                 '''Selection of the Elasticsearch Index'''
                 conn = sqlite3.connect(self.resources_db)
@@ -291,7 +291,8 @@ class SecurityManager(AbstractManager):
                 with open("%s/vnfd.json" % tmp_files_path, "r") as fd:
                     vnfd = json.loads(fd.read())
                 logger.debug(vnfd)
-                vnfd["name"] += ("-%s" % random_id)
+                # if problems occur when all VNF have same name so uncomment
+                #vnfd["name"] += ("-%s" % random_id)
                 vnfd["type"] = vnfd["name"]
 
                 vnfd["vdu"][0]["vimInstanceName"] = ["vim-instance-%s" % testbed]
@@ -307,15 +308,28 @@ class SecurityManager(AbstractManager):
 
                 body = {}
 
-                if "ssh_pub_key" in properties :
+                #if "ssh_pub_key"
+                if "ssh_key" in properties :
+
                     key_name = "securityResourceKey"
-                    open_baton.import_key(properties["ssh_pub_key"], key_name)
+                    open_baton.import_key(properties["ssh_key"], key_name)
                     body = {"keys" : [ key_name ]}
 
                 logger.debug(vnfd["name"])
                 logger.debug("Prepared VNFD: %s" % vnfd)
                 with open("%s/vnfd.json" % tmp_files_path, "w") as fd:
                     fd.write(json.dumps(vnfd))
+
+                # if problems occur when all VNF have same name so uncomment
+                #with open("%s/Metadata.yaml" % tmp_files_path, "r") as f:
+                #    #meta_yaml = json.loads(f.read())
+                #    meta_yaml = yaml.load(f)
+
+                #with open("%s/Metadata.yaml" % tmp_files_path, "w") as f:
+                #    meta_yaml["name"] += ("-%s" % random_id)
+                #    #f.write(json.dumps(meta_yaml))
+                #    yaml.dump(meta_yaml, f)
+
                 '''Prepare VNFPackage'''
                 tar.add('%s' % tmp_files_path, arcname='')
                 tar.close()
@@ -354,6 +368,8 @@ class SecurityManager(AbstractManager):
             try:
                 response = {}
                 ret = openstack.deploy_pfSense({"wan": properties["wan_name"], "lan": properties["lan_name"]})
+
+                logger.debug(ret)
 
                 pfsense_ip = ret["ip"]
                 os_instance_id = ret["id"]
