@@ -23,7 +23,9 @@ class OBClient :
         project_id = self.project_id
 
         '''Upload the VNFP'''
+        logger.debug(project_id)
         vnfp_agent = agent.get_vnf_package_agent(project_id=project_id)
+        print(path)
         vnfp = vnfp_agent.create(path)
 
         '''Create and upload the NSD'''
