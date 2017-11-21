@@ -71,7 +71,7 @@ class OSclient :
 
         self.nova = nova_client.Client("2.1", session=self.os_session)
         self.neutron = neutron_client.Client(session=self.os_session)
-        self.glance = glance_client.Client("1", session=self.os_session)
+        self.glance = glance_client.Client("2", session=self.os_session)
 
     def get_fl_ip_from_id(self, instance_id):
         s = self.nova.servers.get(instance_id)
@@ -85,64 +85,66 @@ class OSclient :
         flavor = utils.get_config("pfsense", "flavor_name", utils.config_path)
         extended_name = "pfsense-" + utils.random_string(6)
 
-        print("STARTTTTT")
-        networks = self.neutron.list_networks(tenant_id=self.exp_tenant_id)["networks"]
-        print("STop")
+        networks = self.neutron.list_networks(tenant_id=self.project_id)["networks"]
         network_names = [x["name"] for x in networks]
         net_names = [selected_networks["wan"], selected_networks["lan"]]
 
         #TODO cambiare tutte le print, mettere log e togliere riferimenti a Zabbix
 
+        logger.debug("# network requested: %d" % len(net_names))
         for network in net_names:
             if network in network_names:
                 logger.debug("network found {}".format(network))
             else:
-                logger.debug("network not found, trying to create it")
+                try:
+                    logger.debug("network not found, trying to create it")
 
-                kwargs = {'network': {
-                    'name': network,
-                    'shared': False,
-                    'admin_state_up': True
-                }}
-                logger.debug("Creating net {}".format(network))
+                    kwargs = {'network': {
+                        'name': network,
+                        'shared': False,
+                        'admin_state_up': True
+                    }}
+                    logger.debug("Creating net {}".format(network))
 
-                network_ = self.neutron.create_network(body=kwargs)['network']
+                    network_ = self.neutron.create_network(body=kwargs)['network']
 
-                logger.debug("net created {}".format(network_))
-                s = self.exp_username + network
-                rand_num = int(hashlib.sha1(s.encode('utf-8')).hexdigest(), base=16) % 254 + 1
-                kwargs = {
-                    'subnets': [
-                        {
-                            'name': "subnet_%s" % network,
-                            'cidr': "192.%s.%s.0/24" % (rand_num, 1),
-                            'gateway_ip': '192.%s.%s.1' % (rand_num, 1),
-                            'ip_version': '4',
-                            'enable_dhcp': True,
-                            'dns_nameservers': ['8.8.8.8'],
-                            'network_id': network_['id']
-                        }
-                    ]
-                }
-                subnet = self.neutron.create_subnet(body=kwargs)
-                logger.debug("Created subnet {}".format(subnet))
+                    logger.debug("net created {}".format(network_))
+                    s = self.tenant_name + network
+                    rand_num = int(hashlib.sha1(s.encode('utf-8')).hexdigest(), base=16) % 254 + 1
+                    kwargs = {
+                        'subnets': [
+                            {
+                                'name': "subnet_%s" % network,
+                                'cidr': "192.%s.%s.0/24" % (rand_num, 1),
+                                'gateway_ip': '192.%s.%s.1' % (rand_num, 1),
+                                'ip_version': '4',
+                                'enable_dhcp': True,
+                                'dns_nameservers': ['8.8.8.8'],
+                                'network_id': network_['id']
+                            }
+                        ]
+                    }
+                    subnet = self.neutron.create_subnet(body=kwargs)
+                    logger.debug("Created subnet {}".format(subnet))
 
-                #Get first router. If no router exists -> ERROR
-                router = self.neutron.list_routers(tenant_id=self.exp_tenant_id)["routers"][0]
-                router_id = router['id']
-                body_value = {
-                    'subnet_id': subnet["subnets"][0]['id'],
-                }
+                    #Get first router. If no router exists -> ERROR
+                    router = self.neutron.list_routers(tenant_id=self.project_id)["routers"][0]
+                    router_id = router['id']
+                    body_value = {
+                        'subnet_id': subnet["subnets"][0]['id'],
+                    }
 
-                self.neutron.add_interface_router(router=router_id, body=body_value)
+                    self.neutron.add_interface_router(router=router_id, body=body_value)
 
-                logger.debug("network successfully created and configured")
+                    logger.debug("network successfully created and configured")
+                except Exception as e:
+                    print(e)
 
         new_server = self.nova.servers.create(
             name=extended_name,
             image=self.nova.glance.find_image(image_name),
             flavor=self.nova.flavors.find(name=flavor),
-            nics=[{'net-id': self.neutron.list_networks(tenant_id=self.exp_tenant_id, name=n)["networks"][0]["id"]} for n in
+            nics=[{'net-id': self.neutron.list_networks(tenant_id=self.project_id, name=n)["networks"][0]["id"]} for n in
                   net_names]
         )
         id = new_server.id
@@ -174,7 +176,7 @@ class OSclient :
                 ip_project_id_ = ip['project_id']
             else:
                 ip_project_id_ = ip['tenant_id']
-            if ip["fixed_ip_address"] is None and ip_project_id_ == self.exp_tenant_id:
+            if ip["fixed_ip_address"] is None and ip_project_id_ == self.project_id:
                 floating_ip_to_add = ip["floating_ip_address"]
                 break
 
