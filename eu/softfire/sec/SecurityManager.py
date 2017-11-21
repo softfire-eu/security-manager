@@ -281,7 +281,9 @@ class SecurityManager(AbstractManager):
                                                get_config("api", "port", config_file_path=config_path),
                                                properties["resource_id"], random_id)
                 logger.debug(link)
-                response["download_link"] = link
+                #response["download_link"] = link
+		#FIXME
+                response["download_link"] = scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
 
                 update = False
                 disable_port_security = False
@@ -339,6 +341,7 @@ class SecurityManager(AbstractManager):
                     with ThreadPoolExecutor(max_workers=1) as executor:
                         future = executor.submit(open_baton.deploy_package, tar_filename, body, resource_id)
                         return_val = future.result(60)
+ 
                     nsr_details = json.loads(return_val)
                     nsr_id = nsr_details["id"]
                     nsd_id = nsr_details["descriptor_reference"]
@@ -349,7 +352,8 @@ class SecurityManager(AbstractManager):
                 except Exception as e :
                     exc_type, exc_value, exc_traceback = sys.exc_info()
                     traceback.print_tb(exc_traceback)
-                    message = "Error deploying the Package on Open Baton: %s" % e
+                    msg = e.message or e.args
+                    message = "Error deploying the Package on Open Baton: %s" % msg
                     logger.error(message)
                     nsr_id = "ERROR"
                     update = False
@@ -451,8 +455,8 @@ class SecurityManager(AbstractManager):
         Return an array of JSON strings with information about the resources
         '''
         #logger.debug("Responding %s" % json.dumps(response))
-        #return [json.dumps(response)]
-        return [json.dumps({"status": "NULL"})]
+        return [json.dumps(response)]
+        #return [json.dumps({"status": "NULL"})]
 
     def _update_status(self) -> dict:
         #logger = get_logger(config_path)
@@ -489,6 +493,7 @@ class SecurityManager(AbstractManager):
             return result
 
         for r in rows:
+            logging.debug("Now checking nsr_id:%s" % r["ob_project_id"])
             s = {}
             '''nsr_id and ob_project_id could be empty with want_agent'''
             nsr_id = r["ob_nsr_id"]

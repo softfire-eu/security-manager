@@ -15,6 +15,9 @@ from eu.softfire.sec.utils.utils import *
 # @authorize()
 def download_scripts(id, resource):
     file_path = get_config(section="local-files", key="path", config_file_path=config_path)
+
+    print("file request")
+
     # username = aaa.current_user.username
 
     '''

@@ -24,13 +24,13 @@ def start():
     sec_manager = SecurityManager(config_path)
     thread = UpdateStatusThread(sec_manager)
     thread.start()
-    api.StartThread().start()
+    #api.StartThread().start()
 
     start_manager(sec_manager)
 
 
 if __name__ == '__main__':
-    os.environ["http_proxy"] = ""
+    #os.environ["http_proxy"] = ""
     welcome = """
         `-::-`        `....`       -------``-------.  .......  `.`  `.....`    `......`     
         /yyssys-    ./ss+:-..`     `yyyyyyy-.yyyyyyyo `/+/////` -//  ./+////:`  :+/////-     
