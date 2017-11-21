@@ -390,9 +390,10 @@ class SecurityManager(AbstractManager):
                 fauxapi_apisecret = get_config("pfsense", "fauxapi-apisecret", config_path)
 
                 #Initialize communication with ReST server pfSense (wait pfSense to be up and running)
+                logger.debug("pfsense IP: %s" % pfsense_ip)
                 api = FauxapiLib(pfsense_ip, fauxapi_apikey, fauxapi_apisecret, debug=True)
 
-                for i in range(20):
+                for i in range(30):
                     try:
                         config = api.config_get()
                         break
@@ -556,28 +557,28 @@ class SecurityManager(AbstractManager):
 
 
                     """Disable port security on VM's ports"""
-                    #if disable_port_security == True:
-                    #    try:
-                    #        logger.debug("Trying to disable port security on VM")
+                    if disable_port_security == True:
+                        try:
+                            logger.debug("Trying to disable port security on VM")
 
-                    #        logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
-                    #        openstack = OSclient(testbed, "", os_project_id)
-                    #        print(testbed)
-                    #        print(os_project_id)
+                            logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
+                            openstack = OSclient(testbed, "", os_project_id)
+                            print(testbed)
+                            print(os_project_id)
 
-                    #        for vnfr in nsr_details["vnfr"]:
-                    #            for vdu in vnfr["vdu"]:
-                    #                for vnfc_instance in vdu["vnfc_instance"]:
-                    #                    server_id = vnfc_instance["vc_id"]
+                            for vnfr in nsr_details["vnfr"]:
+                                for vdu in vnfr["vdu"]:
+                                    for vnfc_instance in vdu["vnfc_instance"]:
+                                        server_id = vnfc_instance["vc_id"]
 
-                    #                    #server_id = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
-                    #                    logger.debug("Trying to disable port security on VM with UUID: %s" % server_id)
-                    #                    openstack.allow_forwarding(server_id)
-                    #                    disable_port_security = "False"
-                    #        query = "UPDATE resources SET disable_port_security = ? WHERE username = ? AND ob_nsr_id = ?"
-                    #        execute_query(self.resources_db, query, (disable_port_security, username, nsr_id))
-                    #    except Exception as e:
-                    #        logger.error("Error disabling port security: {0}".format(e))
+                                        #server_id = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
+                                        logger.debug("Trying to disable port security on VM with UUID: %s" % server_id)
+                                        openstack.allow_forwarding(server_id)
+                                        disable_port_security = "False"
+                            query = "UPDATE resources SET disable_port_security = ? WHERE username = ? AND ob_nsr_id = ?"
+                            execute_query(self.resources_db, query, (disable_port_security, username, nsr_id))
+                        except Exception as e:
+                            logger.error("Error disabling port security: {0}".format(e))
 
                 except Exception as e:
                     logger.error("Error contacting Open Baton to check resource status, nsr_id: %s\n%s" % (nsr_id, e))
