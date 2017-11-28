@@ -3,6 +3,7 @@ import bottle
 from beaker.middleware import SessionMiddleware
 from bottle import request, get, static_file
 from sdk.softfire.utils import get_config
+import eu.softfire.sec.utils.utils as utils
 
 from eu.softfire.sec.utils.utils import *
 
@@ -11,13 +12,16 @@ from eu.softfire.sec.utils.utils import *
 # authorize = aaa.make_auth_decorator(fail_redirect="/login")
 # bottle.TEMPLATE_PATH = [get_config('api', 'view-path', config_path)]
 
+logger = utils.get_logger(utils.config_path, __name__)
+REST_HOST = "0.0.0.0"
+
 @get('/<resource>/<id>')
 # @authorize()
 def download_scripts(id, resource):
     file_path = get_config(section="local-files", key="path", config_file_path=config_path)
 
-    print("file request")
 
+    logger.info("incoming request")
     # username = aaa.current_user.username
 
     '''
@@ -176,6 +180,6 @@ def start():
     app = SessionMiddleware(app, session_opts)
     # quiet_bottle = logger.getEffectiveLevel() < logging.DEBUG
     # logger.debug("Bootlepy quiet mode: %s" % quiet_bottle)
-
-    print(port)
-    bottle.run(app=app, port=port, host='0.0.0.0')
+    
+    logger.info("Starting want-agent REST server. listening on %s:%s" % (REST_HOST, port))
+    bottle.run(app=app, port=port, host=REST_HOST)
