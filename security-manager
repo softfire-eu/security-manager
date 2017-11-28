@@ -24,7 +24,7 @@ def start():
     sec_manager = SecurityManager(config_path)
     thread = UpdateStatusThread(sec_manager)
     thread.start()
-    #api.StartThread().start()
+    api.StartThread().start()
 
     start_manager(sec_manager)
 
