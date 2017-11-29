@@ -23,9 +23,7 @@ class OBClient :
         project_id = self.project_id
 
         '''Upload the VNFP'''
-        logger.debug(project_id)
         vnfp_agent = agent.get_vnf_package_agent(project_id=project_id)
-        print(path)
         vnfp = vnfp_agent.create(path)
 
         '''Create and upload the NSD'''
@@ -49,8 +47,8 @@ class OBClient :
         nsd["vnfd"] = [{"id": vnfp["id"]}]
         virtual_links = [{"name": "softfire-internal"}]
         nsd["vld"] = virtual_links
-        for k in nsd.keys():
-            print("%s:%s" % (k, nsd[k]))
+#        for k in nsd.keys():
+#            print("%s:%s" % (k, nsd[k]))
 
 #	nsd_dummy = {
 #                "name": "NSD Security Firewall",
@@ -68,7 +66,7 @@ class OBClient :
         nsr = nsr_agent.create(nsd["id"], json.dumps(body))
 
         nsr_details = nsr_agent.find(nsr["id"])
-        logger.debug(nsr_details)
+ #       logger.debug(nsr_details)
 
         return nsr_details
 
