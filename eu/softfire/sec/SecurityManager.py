@@ -127,9 +127,22 @@ class SecurityManager(AbstractManager):
 
     def provide_resources(self, user_info, payload=None):
 
-        logger.debug("user_info: type: %s, %s" % (type(user_info), user_info))
-        logger.debug("payload: %s" % payload)
+        logger.info("Starting providing...")
+
+        resource = yaml.load(payload)
         username = user_info.name
+
+        def print_payload(properties, title=None):
+            if title:
+                logger.debug("%s:" % title)	
+            for k in properties.keys():
+                if isinstance(properties[k], dict):
+                    logger.debug("#"+k)
+                    print_payload(properties[k])
+                else:
+                    logger.debug("%s: %s" % (k, isinstance(properties[k], str) and len(properties[k]) > 100 and properties[k][:30]+"..."+properties[k][-30:] or properties[k]))
+
+        print_payload(resource, "Resource")
 
         logger.info("Requested provide_resources by user %s" % username)
 
@@ -147,8 +160,6 @@ class SecurityManager(AbstractManager):
         logger.debug("Store tmp files in folder %s" % tmp_files_path)
         os.makedirs(tmp_files_path)
 
-        resource = yaml.load(payload)
-        print(resource)
         properties = resource["properties"]
 
         response = {}
@@ -181,11 +192,12 @@ class SecurityManager(AbstractManager):
             tar.close()
 
             if "logging" in properties and properties["logging"]:
+                logger.info("Configuring logging")
                 collector_ip = get_config("log-collector", "ip", config_path)
                 elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
                 dashboard_template = get_config("log-collector", "dashboard-template", config_path)
                 kibana_port = get_config("log-collector", "kibana-port", config_path)
-                logger.debug("Configuring logging. LEK_ip:{} - elastic_port:{} - kibana_port:{}".format(collector_ip, elastic_port, kibana_port))
+                logger.debug("LEK_ip:{} - elastic_port:{} - kibana_port:{}".format(collector_ip, elastic_port, kibana_port))
 
                 '''Selection of the Elasticsearch Index'''
                 conn = sqlite3.connect(self.resources_db)
@@ -235,8 +247,9 @@ class SecurityManager(AbstractManager):
                 link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path),
                                                       get_config("api", "port", config_file_path=config_path),
                                                       random_id)
+                logger.debug("Dashboard link: %s" % link)
                 response["log_dashboard_link"] = link
-                # response.append(json.dumps({"log_dashboard_link": link}))
+                #response.append(json.dumps({"log_dashboard_link": link}))
 
             if resource_id == "firewall":
                 '''Modify scripts with custom configuration'''
@@ -494,7 +507,8 @@ class SecurityManager(AbstractManager):
             return result
 
         for r in rows:
-            logging.debug("Now checking nsr_id:%s" % r["ob_project_id"])
+            logger.debug("Now checking nsr_id:%s" % r["ob_project_id"])
+            print(r)
             s = {}
             '''nsr_id and ob_project_id could be empty with want_agent'''
             nsr_id = r["ob_nsr_id"]
@@ -505,7 +519,7 @@ class SecurityManager(AbstractManager):
             disable_port_security = r["disable_port_security"]
             username = r["username"]
             elastic_index = None
-            if "elastic_index" in r:
+            if "elastic_index" in r.keys():
                 elastic_index = r["elastic_index"]
             random_id = r["random_id"]
             resource_id = r["resource_id"]
@@ -513,15 +527,16 @@ class SecurityManager(AbstractManager):
 
             '''Repush index-pattern'''
             if elastic_index and elastic_index != "":
+                logger.debug("update elastic status")
                 link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path),
                                                       get_config("api", "port", config_file_path=config_path),
                                                       random_id)
+                logger.debug("Eleastic dashboard link: %s" % link)
                 s["dashboard_log_link"] = link
                 try:
                     with ThreadPoolExecutor(max_workers=1) as executor:
                         future = executor.submit(push_kibana_index, elastic_index)
                         future.result(5)
-
                 except Exception as e:
                     logger.error("Problem contacting the log collector: %s" % e)
                     s["dashboard_log_link"] = "ERROR"
