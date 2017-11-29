@@ -38,7 +38,7 @@ def get_logger(config_path, name):
     logging.config.fileConfig(config_path)
     l = logging.getLogger(name)
     return l
-
+logger = get_logger(config_path, __name__)
 
 def random_string(size):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(size))
@@ -68,14 +68,12 @@ def push_kibana_index(elastic_index):
     '''Push of the Index pattern to Elasticsearch'''
     url = "http://%s:%s/.kibana/index-pattern/%s-*" % (elastic_ip, elastic_port, elastic_index)
     data = {"title": "%s-*" % elastic_index, "timeFieldName": "@timestamp"}
-    print("Pushing %s to %s" % (data, url))
+    logger.debug("Pushing %s to %s" % (data, url))
     resp = requests.post(url, data=json.dumps(data))
-    print(resp)
+    logger.debug(resp)
 
 
 def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id):
-    logger = get_logger(config_path, __name__)
-
     logger.debug("Start creating dashboard")
     collector_ip = get_config("log-collector", "ip", config_path)
     elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
