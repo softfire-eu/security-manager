@@ -248,7 +248,8 @@ class SecurityManager(AbstractManager):
                                                       get_config("api", "port", config_file_path=config_path),
                                                       random_id)
                 logger.debug("Dashboard link: %s" % link)
-                response["log_dashboard_link"] = link
+                #response["log_dashboard_link"] = link
+                response["log_dashboard_link"] = "Loading"
                 #response.append(json.dumps({"log_dashboard_link": link}))
 
             if resource_id == "firewall":
@@ -305,7 +306,7 @@ class SecurityManager(AbstractManager):
                 vnfd = {}
                 with open("%s/vnfd.json" % tmp_files_path, "r") as fd:
                     vnfd = json.loads(fd.read())
-                logger.debug(vnfd)
+                print_payload(vnfd, "VNF Descriptor")
                 # if problems occur when all VNF have same name so uncomment
                 #vnfd["name"] += ("-%s" % random_id)
                 vnfd["type"] = vnfd["name"]
@@ -330,8 +331,6 @@ class SecurityManager(AbstractManager):
                     open_baton.import_key(properties["ssh_key"], key_name)
                     body = {"keys" : [ key_name ]}
 
-                logger.debug(vnfd["name"])
-                logger.debug("Prepared VNFD: %s" % vnfd)
                 with open("%s/vnfd.json" % tmp_files_path, "w") as fd:
                     fd.write(json.dumps(vnfd))
 
@@ -358,7 +357,7 @@ class SecurityManager(AbstractManager):
                     nsr_details = json.loads(return_val)
                     nsr_id = nsr_details["id"]
                     nsd_id = nsr_details["descriptor_reference"]
-                    response["NSR Details"] = nsr_details
+                    response["NSR Details"] = {"status": nsr_details["status"]}
                     update = True
                     disable_port_security = True
 
@@ -406,44 +405,49 @@ class SecurityManager(AbstractManager):
                 logger.debug("pfsense IP: %s" % pfsense_ip)
                 api = FauxapiLib(pfsense_ip, fauxapi_apikey, fauxapi_apisecret, debug=True)
 
-                for i in range(30):
+                reachable = False
+                for i in range(60):
                     try:
                         config = api.config_get()
+                        reachable = True
                         break
                     except requests.exceptions.ConnectionError:
-                        print("Not Reachable")
+                        logger.debug("Pfsense not Reachable. trying again")
                         time.sleep(2)
 
-                u = config["system"]["user"][0]
+                if reachable:
+                    u = config["system"]["user"][0]
 
-                u["name"] = username
-                hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-                bic = hashed.decode()
-                u["bcrypt-hash"] = bic
+                    u["name"] = username
+                    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+                    bic = hashed.decode()
+                    u["bcrypt-hash"] = bic
 
-                # TODO Add to config command that stores the FauxAPI Key
-                credentials_file = "/etc/fauxapi/credentials.ini"
-                local_script_path = "/etc/softfire/security-manager/inject_credentials"
-                pfsense_script_path = "/root/inject_credentials"
+                    # TODO Add to config command that stores the FauxAPI Key
+                    credentials_file = "/etc/fauxapi/credentials.ini"
+                    local_script_path = "/etc/softfire/security-manager/inject_credentials"
+                    pfsense_script_path = "/root/inject_credentials"
 
-                ssh = SSHClient()
-                ssh.set_missing_host_key_policy(AutoAddPolicy())
-                ssh.load_system_host_keys()
-                ssh.connect(hostname=pfsense_ip, port=22, username="root", password="pfsense")
-                scp = SCPClient(ssh.get_transport())
-                scp.put(files=local_script_path, remote_path=pfsense_script_path)
+                    ssh = SSHClient()
+                    ssh.set_missing_host_key_policy(AutoAddPolicy())
+                    ssh.load_system_host_keys()
+                    ssh.connect(hostname=pfsense_ip, port=22, username="root", password="pfsense")
+                    scp = SCPClient(ssh.get_transport())
+                    scp.put(files=local_script_path, remote_path=pfsense_script_path)
 
-                apisecret_value = random_string(60)
-                config["system"]["shellcmd"] = [
-                    "sh {0} {1} {2} {3}".format(pfsense_script_path, credentials_file, username, apisecret_value)]
+                    apisecret_value = random_string(60)
+                    config["system"]["shellcmd"] = [
+                        "sh {0} {1} {2} {3}".format(pfsense_script_path, credentials_file, username, apisecret_value)]
 
-                time.sleep(10)
-                api.config_set(config)
-                api.config_reload()
-                api.system_reboot()
-                response["ip"] = pfsense_ip
-                response["FauxAPI-ApiKey"] = "[PFFA%s]" % username
-                response["FauxAPI-ApiSecret"] = apisecret_value
+                    time.sleep(10)
+                    api.config_set(config)
+                    api.config_reload()
+                    api.system_reboot()
+                    response["ip"] = pfsense_ip
+                    response["FauxAPI-ApiKey"] = "[PFFA%s]" % username
+                    response["FauxAPI-ApiSecret"] = apisecret_value
+                else:
+                    raise Exception("pfsense not reachable")
 
             except Exception as e:
                 logger.error(e)
@@ -468,7 +472,7 @@ class SecurityManager(AbstractManager):
         '''
         Return an array of JSON strings with information about the resources
         '''
-        #logger.debug("Responding %s" % json.dumps(response))
+        logger.debug("Responding %s" % json.dumps(response))
         return [json.dumps(response)]
         #return [json.dumps({"status": "NULL"})]
 
