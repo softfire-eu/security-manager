@@ -629,7 +629,7 @@ class SecurityManager(AbstractManager):
                 result[username].append(json.dumps(s))
             else :
                 s = {}
-        #logger.debug("Result: %s" % result)
+        logger.debug("Result: %s" % result)
         return result
 
     def release_resources(self, user_info=None, payload=None):
