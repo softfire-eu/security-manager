@@ -14,6 +14,7 @@ from eu.softfire.sec.utils.utils import *
 
 logger = utils.get_logger(utils.config_path, __name__)
 REST_HOST = "0.0.0.0"
+PORT = 4096
 
 @get('/<resource>/<id>')
 # @authorize()
@@ -165,6 +166,7 @@ def check_if_authorized(username):
 def start():
     bottle.debug(True)
 
+    #TODO forward change to .ini file
     port = get_config(config_file_path=config_path, section='api', key='port', default=8080)
     app = bottle.app()
     # bottle.install(error_translation)
@@ -181,5 +183,5 @@ def start():
     # quiet_bottle = logger.getEffectiveLevel() < logging.DEBUG
     # logger.debug("Bootlepy quiet mode: %s" % quiet_bottle)
     
-    logger.info("Starting want-agent REST server. listening on %s:%s" % (REST_HOST, port))
-    bottle.run(app=app, port=port, host=REST_HOST)
+    logger.info("Starting want-agent REST server. listening on %s:%s" % (REST_HOST, PORT))
+    bottle.run(app=app, port=PORT, host=REST_HOST)
