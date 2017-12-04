@@ -67,6 +67,9 @@ def post_kibana_element(el_type, el_id, data):
 def push_kibana_index(elastic_index):
     elastic_ip = get_config("log-collector", "ip", config_path)
     elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
+    r_check = requests.get("http://%s:%s/.kibana/index-pattern/%s-*" % (elastic_ip, elastic_port, elastic_index)).json()
+    if r_check["found"]:
+        return
     '''Push of the Index pattern to Elasticsearch'''
     url = "http://%s:%s/.kibana/index-pattern/%s-*" % (elastic_ip, elastic_port, elastic_index)
     r = requests.get("http://%s:%s/.kibana/index-pattern/%s-*" % (elastic_ip, elastic_port, "logstash")).json()
