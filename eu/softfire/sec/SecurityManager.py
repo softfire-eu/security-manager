@@ -669,6 +669,9 @@ class SecurityManager(AbstractManager):
         query = "DELETE FROM resources WHERE username = ?"
         cur.execute(query, (username,))
 
+        query = "DELETE FROM elastic_indexes WHERE username = ?"
+        cur.execute(query, (username,))
+
         conn.commit()
         conn.close()
 
