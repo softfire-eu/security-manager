@@ -51,7 +51,7 @@ def get_kibana_element(el_type, el_id):
     elastic_ip = get_config("log-collector", "ip", config_path)
     elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
     resp = requests.get("http://%s:%s/.kibana/%s/%s" % (elastic_ip, elastic_port, el_type, el_id))
-    print(resp)
+    logger.debug("Kibana element type=%s, GET: %s" % (el_type, resp))
     return resp.json()
 
 
@@ -59,6 +59,8 @@ def post_kibana_element(el_type, el_id, data):
     elastic_ip = get_config("log-collector", "ip", config_path)
     elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
     resp = requests.post("http://%s:%s/.kibana/%s/%s" % (elastic_ip, elastic_port, el_type, el_id), data=data)
+    logger.debug("elem type=%s, id=%s" % (el_type, el_id))
+    print(data)
     return resp.json()
 
 
@@ -67,10 +69,11 @@ def push_kibana_index(elastic_index):
     elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
     '''Push of the Index pattern to Elasticsearch'''
     url = "http://%s:%s/.kibana/index-pattern/%s-*" % (elastic_ip, elastic_port, elastic_index)
-    data = {"title": "%s-*" % elastic_index, "timeFieldName": "@timestamp"}
-    logger.debug("Pushing %s to %s" % (data, url))
+    r = requests.get("http://%s:%s/.kibana/index-pattern/%s-*" % (elastic_ip, elastic_port, "logstash")).json()
+    data = {"title": "%s-*" % elastic_index, "timeFieldName": "@timestamp", "fields": r["_source"]["fields"]}
+    #logger.debug("Pushing %s to %s" % (data, url))
     resp = requests.post(url, data=json.dumps(data))
-    logger.debug(resp)
+    logger.debug("kibana index POST: %s" % resp)
 
 
 def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id):
@@ -80,9 +83,13 @@ def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id):
     dashboard_template = get_config("log-collector", "dashboard-template", config_path)
     kibana_port = get_config("log-collector", "kibana-port", config_path)
 
+    logger.debug("ip=%s, e=%s, k=%s"  % (collector_ip, elastic_port, kibana_port))
+    logger.debug("template=%s" % dashboard_template)
+
     '''Push of the Index pattern to Elasticsearch'''
     push_kibana_index(elastic_index)
 
+    logger.debug("Dashboard -----------------------:")
     dashboard = get_kibana_element("dashboard", dashboard_template)
     panels = json.loads(dashboard["_source"]["panelsJSON"])
 
@@ -90,24 +97,29 @@ def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id):
     for i, p in enumerate(panels):
 
         '''Get the element'''
+        logger.debug("Getting element %s" %p["id"])
         element = get_kibana_element(p["type"], p["id"])
         source = json.loads(element["_source"]["kibanaSavedObjectMeta"]["searchSourceJSON"])
 
         '''If the element contain the index, this need to be changed'''
         if "index" in source.keys():
             source["index"] = "%s-*" % elastic_index
+            logger.debug("New index %s" %source["index"])
             element["_source"]["kibanaSavedObjectMeta"]["searchSourceJSON"] = json.dumps(source)
             el_id = random_string(15)
             r = post_kibana_element(p["type"], el_id, json.dumps(element["_source"]))
 
+            logger.debug("element POST: %s" % r)
             '''Attach new id of the element'''
             panels[i]["id"] = el_id
+        else:
+            logger.debug("elem with no index")
 
     dashboard["_source"]["panelsJSON"] = json.dumps(panels)
 
     '''Push new dashboard'''
     r = post_kibana_element("dashboard", dashboard_id, json.dumps(dashboard["_source"]))
-    print(r)
+    logger.debug("dashboard final POST: %s" % r)
     store_kibana_dashboard(dashboard_path, collector_ip, kibana_port, dashboard_id)
     return
 
