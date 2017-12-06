@@ -295,9 +295,9 @@ class SecurityManager(AbstractManager):
                                                get_config("api", "port", config_file_path=config_path),
                                                properties["resource_id"], random_id)
                 logger.debug(link)
-                #response["download_link"] = link
-		#FIXME
-                response["download_link"] = scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
+                response["download_link"] = link
+		# url from dev template
+                #response["download_link"] = scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
 
                 update = False
                 disable_port_security = False
