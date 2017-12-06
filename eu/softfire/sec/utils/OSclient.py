@@ -208,7 +208,9 @@ class OSclient :
             print(ret)
 
     def upload_image(self, image_name, path):
-        i = self.glance.images.create(name=image_name, disk_format="qcow2", container_format="bare", visibility="public", protected=True)
+        # removed visibility property
+        #i = self.glance.images.create(name=image_name, disk_format="qcow2", container_format="bare", visibility="public", protected=True)
+        i = self.glance.images.create(name=image_name, disk_format="qcow2", container_format="bare", protected=True)
         self.glance.images.upload(i.id, open(path, 'rb'))
 
 if __name__ == "__main__" :
