@@ -651,7 +651,7 @@ class SecurityManager(AbstractManager):
                     open_baton = OBClient(r["ob_project_id"])
                     open_baton.delete_ns(nsr_id=r["ob_nsr_id"], nsd_id=r["ob_nsd_id"])
                 except Exception as e:
-                    logger.error("Problem contacting Open Baton: " % e)
+                    logger.error("Problem contacting Open Baton: {}".format(e))
 
             if r["os_instance_id"] != "" :
                 try:
