@@ -36,6 +36,9 @@ setup(
         'requests',
         'softfire-sdk',
         'beaker',
+        'paramiko',
+        'scp',
+        'idstools',
         ],
     long_description=read('README.md'),
     classifiers=[
