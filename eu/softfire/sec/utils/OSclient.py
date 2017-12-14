@@ -88,6 +88,7 @@ class OSclient :
         networks = self.neutron.list_networks(tenant_id=self.project_id)["networks"]
         network_names = [x["name"] for x in networks]
         net_names = [selected_networks["wan"], selected_networks["lan"]]
+        logger.debug("network esistenti: %s" + repr(network_names))
 
         #TODO cambiare tutte le print, mettere log e togliere riferimenti a Zabbix
 
@@ -128,7 +129,9 @@ class OSclient :
                     logger.debug("Created subnet {}".format(subnet))
 
                     #Get first router. If no router exists -> ERROR
-                    router = self.neutron.list_routers(tenant_id=self.project_id)["routers"][0]
+                    router = self.neutron.list_routers(tenant_id=self.project_id)
+                    logger.debug(router)
+                    router = router["routers"][0]
                     router_id = router['id']
                     body_value = {
                         'subnet_id': subnet["subnets"][0]['id'],
