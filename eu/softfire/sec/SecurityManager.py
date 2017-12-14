@@ -28,10 +28,10 @@ resources = {
 	"suricata" : "This resource permits to deploy a Suricata NIPS. You can deploy it as a standalone VM, " \
                  "or you can use it as an agent directly installed on the machine that you want to protect. " \
                  "This resource offers the functionalities of Suricata NIPS (https://suricata-ids.org/).\nMore information at http://docs.softfire.eu/security-manager/",
-	"pfsense" : "This resource permits to deploy a pfSense VM."\
-                "This resource offers the functionalities of pfSense (https://www.pfsense.org/), and " \
-                "can be configured by means of a Rest API provided by FauxAPI package (https://github.com/ndejong/pfsense_fauxapi)." \
-                "\nMore information at http://docs.softfire.eu/security-manager/"
+	#"pfsense" : "This resource permits to deploy a pfSense VM."\
+        #        "This resource offers the functionalities of pfSense (https://www.pfsense.org/), and " \
+        #        "can be configured by means of a Rest API provided by FauxAPI package (https://github.com/ndejong/pfsense_fauxapi)." \
+        #        "\nMore information at http://docs.softfire.eu/security-manager/"
 }
 
 class SecurityManager(AbstractManager):
@@ -123,6 +123,7 @@ class SecurityManager(AbstractManager):
                     message = "Invalid Suricata rule: %s" % r
                     logger.info(message)
                     raise ResourceValidationError(message=message)
+
 
 
     def provide_resources(self, user_info, payload=None):
