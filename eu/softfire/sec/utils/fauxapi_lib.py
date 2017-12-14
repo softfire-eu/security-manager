@@ -166,7 +166,7 @@ class FauxapiLib:
         return '{}:{}:{}:{}'.format(self.apikey, timestamp, nonce, hash)
 
 if __name__ == "__main__"  :
-    fauxapi_host ="10.20.70.16"
+    fauxapi_host ="10.5.22.189"
 #"10.44.57.14"  #"10.20.70.18"
     fauxapi_apikey = "PFFAsecuritymanager"
     fauxapi_apisecret = "MIE3ev08qfaCLT9Ga51pDtYNzA84vuRv5CIpdHm80pPqlxzR5Cm4ByjxdcmH"

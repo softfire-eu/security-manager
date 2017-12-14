@@ -36,41 +36,34 @@ class OSclient :
         self.admin_tenant_name = testbed_info["admin_tenant_name"]
         self.admin_project_id = testbed_info["admin_project_id"]
 
-
-        #self.ext_net = testbed_info["ext_net_name"]
-        #self.domain_name = testbed_info["user_domain_name"]
-        #self.exp_username = exp_username
-        #self.exp_tenant_id = exp_tenant_id
-
-        #self.logger = utils.get_logger(utils.config_path, __name__)
-
-        #if self.api_version == 2:
-        #    OSloader = loading.get_plugin_loader('password')
-        #    auth = OSloader.load_from_options(
-        #        auth_url=self.auth_url,
-        #        username=self.admin_username,
-        #        password=self.password,
-        #        tenant_name=exp_tenant_id,
-        #    )
-
         if self.api_version == 3:
             auth = identity.v3.Password(
                 auth_url = self.auth_url,
-                #username=self.admin_username,
                 username = self.username,
                 password = self.password,
                 project_id = self.project_id,
                 project_domain_name = self.project_domain_name,
-                #project_domain_name=self.domain_name,
-                #user_domain_name=self.domain_name,
                 user_domain_id = self.user_domain_id
-                #project_id=exp_tenant_id
             )
-
+        else:
+            logger.error("API version < 3")
+	
+        logger.info("Opening OS session for project:%s" % self.project_id)
+       	logger.debug("auth url: %s" % self.auth_url)
+       	logger.debug("username: %s" % self.username)
+       	logger.debug("password: %s" % self.password)
+       	logger.debug("project id: %s" % self.project_id)
+       	logger.debug("project domain name: %s" % self.project_domain_name)
+       	logger.debug("user domain name: %s" % self.user_domain_id)
         self.os_session = session.Session(auth=auth)
 
+        logger.debug("nova client init")
         self.nova = nova_client.Client("2.1", session=self.os_session)
+
+        logger.debug("neutron client init")
         self.neutron = neutron_client.Client(session=self.os_session)
+
+        logger.debug("glance client init")
         self.glance = glance_client.Client("2", session=self.os_session)
 
     def get_fl_ip_from_id(self, instance_id):
@@ -80,14 +73,26 @@ class OSclient :
                 if a["OS-EXT-IPS:type"] == "floating":
                     return a["addr"]
 
+    def list_networks(self):
+        #return [n for n in self.neutron.list_networks().get('networks') if n.get('project_id') != None and n.get('project_id') == self.project_id]
+        print(self.neutron.list_networks())
+        #return [n.get('name') for n in self.neutron.list_networks().get('networks')]
+
     def deploy_pfSense(self, selected_networks: dict):
+        logger.info("Deploing pfsense")
         image_name = utils.get_config("pfsense", "image_name", utils.config_path)
         flavor = utils.get_config("pfsense", "flavor_name", utils.config_path)
         extended_name = "pfsense-" + utils.random_string(6)
+        logger.debug("image name: %s, flavor: %s, resource_id: %s" % (image_name, flavor, extended_name))
+
+        logger.info("Listing networks")
+        self.list_networks()
+        return
 
         networks = self.neutron.list_networks(tenant_id=self.project_id)["networks"]
         network_names = [x["name"] for x in networks]
         net_names = [selected_networks["wan"], selected_networks["lan"]]
+        logger.debug("network esistenti: %s" + repr(network_names))
 
         #TODO cambiare tutte le print, mettere log e togliere riferimenti a Zabbix
 
@@ -128,7 +133,9 @@ class OSclient :
                     logger.debug("Created subnet {}".format(subnet))
 
                     #Get first router. If no router exists -> ERROR
-                    router = self.neutron.list_routers(tenant_id=self.project_id)["routers"][0]
+                    router = self.neutron.list_routers(tenant_id=self.project_id)
+                    logger.debug(router)
+                    router = router["routers"][0]
                     router_id = router['id']
                     body_value = {
                         'subnet_id': subnet["subnets"][0]['id'],
@@ -233,3 +240,6 @@ if __name__ == "__main__" :
         openstack.upload_image(img_name, path)
 
 
+    with open("/etc/softfire/openstack-credentials.json", "r") as f:
+        openstack = OSclient("fokus", "softfire", "63dbce3210704f74b9b83715734062ba")
+        print(openstack.list_networks())

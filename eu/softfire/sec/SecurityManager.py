@@ -374,81 +374,76 @@ class SecurityManager(AbstractManager):
                     response["NSR Details"] = "ERROR: %s" % message
 
         elif resource_id == "pfsense" :
-            #testbed = properties["testbed"]
 
-            # TODO ELIMINARE!!
-            #os_project_id = "4affafec75eb4c729af158b5ab113156"
-
-            password = user_info.password
+            response = {}
 
             openstack = OSclient(testbed, username, os_project_id)
+
             try:
-                response = {}
                 ret = openstack.deploy_pfSense({"wan": properties["wan_name"], "lan": properties["lan_name"]})
+		#logger.debug(ret)
 
-                logger.debug(ret)
+            #    pfsense_ip = ret["ip"]
+            #    os_instance_id = ret["id"]
 
-                pfsense_ip = ret["ip"]
-                os_instance_id = ret["id"]
+            #    response["ip"] = pfsense_ip
 
-                response["ip"] = pfsense_ip
+            #    """Allow forwarding on pfSense"""
+            #    openstack.allow_forwarding(os_instance_id)
 
-                """Allow forwarding on pfSense"""
-                openstack.allow_forwarding(os_instance_id)
+            #    update = True
+            #    disable_port_security = False
 
-                update = True
-                disable_port_security = False
+            #    fauxapi_apikey = get_config("pfsense", "fauxapi-apikey", config_path)
+            #    fauxapi_apisecret = get_config("pfsense", "fauxapi-apisecret", config_path)
 
-                fauxapi_apikey = get_config("pfsense", "fauxapi-apikey", config_path)
-                fauxapi_apisecret = get_config("pfsense", "fauxapi-apisecret", config_path)
+            #    #Initialize communication with ReST server pfSense (wait pfSense to be up and running)
+            #    logger.debug("pfsense IP: %s" % pfsense_ip)
+            #    api = FauxapiLib(pfsense_ip, fauxapi_apikey, fauxapi_apisecret, debug=True)
 
-                #Initialize communication with ReST server pfSense (wait pfSense to be up and running)
-                logger.debug("pfsense IP: %s" % pfsense_ip)
-                api = FauxapiLib(pfsense_ip, fauxapi_apikey, fauxapi_apisecret, debug=True)
+            #    reachable = False
+            #    for i in range(60):
+            #        try:
+            #            config = api.config_get()
+            #            reachable = True
+            #            break
+            #        except requests.exceptions.ConnectionError:
+            #            logger.debug("Pfsense not Reachable. trying again")
+            #            time.sleep(2)
 
-                reachable = False
-                for i in range(60):
-                    try:
-                        config = api.config_get()
-                        reachable = True
-                        break
-                    except requests.exceptions.ConnectionError:
-                        logger.debug("Pfsense not Reachable. trying again")
-                        time.sleep(2)
+            #    if reachable:
+            #        u = config["system"]["user"][0]
 
-                if reachable:
-                    u = config["system"]["user"][0]
+            #        u["name"] = username
+            #        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+            #        bic = hashed.decode()
+            #        u["bcrypt-hash"] = bic
 
-                    u["name"] = username
-                    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-                    bic = hashed.decode()
-                    u["bcrypt-hash"] = bic
+            #        # TODO Add to config command that stores the FauxAPI Key
+            #        credentials_file = "/etc/fauxapi/credentials.ini"
+            #        local_script_path = "/etc/softfire/security-manager/inject_credentials"
+            #        pfsense_script_path = "/root/inject_credentials"
 
-                    # TODO Add to config command that stores the FauxAPI Key
-                    credentials_file = "/etc/fauxapi/credentials.ini"
-                    local_script_path = "/etc/softfire/security-manager/inject_credentials"
-                    pfsense_script_path = "/root/inject_credentials"
+            #        ssh = SSHClient()
+            #        ssh.set_missing_host_key_policy(AutoAddPolicy())
+            #        ssh.load_system_host_keys()
+            #        ssh.connect(hostname=pfsense_ip, port=22, username="root", password="pfsense")
+            #        scp = SCPClient(ssh.get_transport())
+            #        scp.put(files=local_script_path, remote_path=pfsense_script_path)
 
-                    ssh = SSHClient()
-                    ssh.set_missing_host_key_policy(AutoAddPolicy())
-                    ssh.load_system_host_keys()
-                    ssh.connect(hostname=pfsense_ip, port=22, username="root", password="pfsense")
-                    scp = SCPClient(ssh.get_transport())
-                    scp.put(files=local_script_path, remote_path=pfsense_script_path)
+            #        apisecret_value = random_string(60)
+            #        config["system"]["shellcmd"] = [
+            #            "sh {0} {1} {2} {3}".format(pfsense_script_path, credentials_file, username, apisecret_value)]
 
-                    apisecret_value = random_string(60)
-                    config["system"]["shellcmd"] = [
-                        "sh {0} {1} {2} {3}".format(pfsense_script_path, credentials_file, username, apisecret_value)]
-
-                    time.sleep(10)
-                    api.config_set(config)
-                    api.config_reload()
-                    api.system_reboot()
-                    response["ip"] = pfsense_ip
-                    response["FauxAPI-ApiKey"] = "[PFFA%s]" % username
-                    response["FauxAPI-ApiSecret"] = apisecret_value
-                else:
-                    raise Exception("pfsense not reachable")
+            #        time.sleep(10)
+            #        api.config_set(config)
+            #        api.config_reload()
+            #        api.system_reboot()
+            #        response["ip"] = pfsense_ip
+            #        response["FauxAPI-ApiKey"] = "[PFFA%s]" % username
+            #        response["FauxAPI-ApiSecret"] = apisecret_value
+            #    else:
+            #        raise Exception("pfsense not reachable")
 
             except Exception as e:
                 logger.error(e)
@@ -464,7 +459,9 @@ class SecurityManager(AbstractManager):
         query = "INSERT INTO resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, os_project_id, os_instance_id, to_update, disable_port_security) \
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
+        logger.info("Saving project to db. user=%s, resource_id=%s" % (username, resource_id))
         logger.debug("Executing %s" % query)
+        logger.debug("value = {%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s}" % (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security))
 
         cur.execute(query, (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security))
         conn.commit()
@@ -513,7 +510,6 @@ class SecurityManager(AbstractManager):
 
         for r in rows:
             logger.debug("Now checking nsr_id:%s" % r["ob_project_id"])
-            print(r)
             s = {}
             '''nsr_id and ob_project_id could be empty with want_agent'''
             nsr_id = r["ob_nsr_id"]
