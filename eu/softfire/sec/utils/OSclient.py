@@ -11,8 +11,10 @@ from neutronclient.v2_0 import client as neutron_client
 
 import hashlib
 import time
+import logging
 
 logger = utils.get_logger(utils.config_path, __name__)
+logging.getLogger("novaclient.v2.client").setLevel(logging.WARNING)
 
 class OSclient :
 
@@ -78,8 +80,6 @@ class OSclient :
         logger.debug("found %d networks" % len(networks_list))
         for n in networks_list:
             logger.debug("net_name: %s, shared: %s" % (n['name'], n['shared']))
-            #print(n)
-        logger.debug(networks_list[0].keys())
         return {n['name']: n for n in networks_list}
 
     def deploy_pfSense(self, selected_networks: dict):
@@ -94,7 +94,7 @@ class OSclient :
 
         logger.info("checking networks")
         for k in selected_networks.keys():
-            if selected_networks[k] in networks.keys() and (networks[selected_networks[k]]['shared'] or network[selected_networks[k]]['project_id'] == self.project_id):
+            if selected_networks[k] in networks.keys() and (networks[selected_networks[k]]['shared'] or networks[selected_networks[k]]['project_id'] == self.project_id):
                 logger.info("'%s' network found" % selected_networks[k])
             else:
                 logger.info("'%s' network not found. Creating..." % selected_networks[k])
@@ -164,16 +164,16 @@ class OSclient :
                 except Exception as e:
                     logger.error(e)
 
-        return
+        logger.info("allocating resources...")
         new_server = self.nova.servers.create(
             name=extended_name,
             image=self.nova.glance.find_image(image_name),
             flavor=self.nova.flavors.find(name=flavor),
-            nics=[{'net-id': self.neutron.list_networks(tenant_id=self.project_id, name=n)["networks"][0]["id"]} for n in
-                  net_names]
-        )
+            #CHECK nics order
+#            nics=[{'net-id': self.neutron.list_networks(tenant_id=self.project_id, name=selected_networks[k])["networks"][0]["id"]} for k in selected_networks.keys()])
+            nics=[{'net-id': networks[selected_networks[k]]["id"]} for k in selected_networks.keys()])
         id = new_server.id
-        logger.debug("pfSense created, id is {}".format(id))
+        logger.info("pfSense created, id: {}".format(id))
 
         openstack_build_timeout = float(240.0)  # seconds
         wait_quantum = 0.3  # seconds
@@ -184,7 +184,6 @@ class OSclient :
             new_server = self.nova.servers.get(id)
             status = new_server.status
 
-            #logger.debug("zabbix attempt {} server status: {}".format(current_attempt, status))
             if status != "BUILD":
                 break
             time.sleep(wait_quantum)
@@ -193,7 +192,7 @@ class OSclient :
             if current_attempt > max_attempts:
                 raise OpenStackDeploymentError(message="Timeout in openstack server building process")
 
-        logger.debug("pfSense instance is ACTIVE")
+        logger.info("pfSense instance is ACTIVE")
         floating_ip_to_add = None
         flips = self.neutron.list_floatingips()
         for ip in flips["floatingips"]:
