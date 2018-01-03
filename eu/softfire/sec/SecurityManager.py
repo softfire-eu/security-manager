@@ -687,12 +687,12 @@ if __name__ == "__main__":
             self.ob_project_id = ob_project_id
 
     os.environ["http_proxy"] = ""
-    user = UserInfo("experimenter", "password", "e9b85df7d3dc4f50b9dfb608df270533", "")
+    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "")
     pfsense_resource = """properties:
         resource_id: pfsense
-        testbed: reply
-        wan_name: my_personal
-        lan_name: test
+        testbed: fokus
+        wan_name: softfire-network_new
+        lan_name: softfire-internal
         """
     suricata_resource = """properties:
         resource_id: suricata
@@ -704,15 +704,10 @@ if __name__ == "__main__":
         logging: True
     """
 
-    resource = suricata_resource
+    resource = pfsense_resource
     sec = SecurityManager(config_path)
     sec.validate_resources(user, payload=resource)
-
     sec.provide_resources(user, payload=resource)
-    time.sleep(300)
+    input("hit enter to release...")
     sec._update_status()
-
     sec.release_resources(user)
-
-
-
