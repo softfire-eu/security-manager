@@ -27,6 +27,8 @@ class OBClient :
         vnfp_agent = agent.get_vnf_package_agent(project_id=project_id)
         vnfp = vnfp_agent.create(path)
 
+        logger.debug("vnfd created. %s" % vnfp) 
+
         '''Create and upload the NSD'''
         # nsd_file_path = "etc/resources/nsd-fw.json"
 
@@ -37,8 +39,8 @@ class OBClient :
         #FIXME remove from production
         if resource_type == "bridge":
             remote_url = re.sub("dev", "bug-pfsense_fixing", remote_url)
+        logger.debug("remote url: %s" % remote_url)
         r = requests.get("%s/nsd-%s.json" % (remote_url, resource_type))
-        logger.debug(r)
 
         nsd = json.loads(r.text)
 
@@ -51,6 +53,8 @@ class OBClient :
         nsd["vnfd"] = [{"id": vnfp["id"]}]
         virtual_links = [{"name": "softfire-internal"}]
         nsd["vld"] = virtual_links
+
+        logger.debug(nsd)
 #        for k in nsd.keys():
 #            print("%s:%s" % (k, nsd[k]))
 
@@ -97,5 +101,4 @@ class OBClient :
             if key.get('name') == name:
                 key_agent.delete(key.get('id'))
                 break
-        logger.debug("name: %s, key: %s" % (name, ssh_pub_key))
         key_agent.create(json.dumps({"name": name, "projectId": project_id, "publicKey": ssh_pub_key}))

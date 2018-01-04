@@ -79,7 +79,7 @@ class OSclient :
         networks_list = self.neutron.list_networks()['networks']
         logger.debug("found %d networks" % len(networks_list))
         for n in networks_list:
-            logger.debug("net_name: %s, shared: %s" % (n['name'], n['shared']))
+            logger.debug("net_name: %s, shared: %s, project_id: %s" % (n['name'], n['shared'], n['project_id']))
         return {n['name']: n for n in networks_list}
 
     def deploy_pfSense(self, selected_networks: dict):
@@ -130,10 +130,13 @@ class OSclient :
                     subnet_result = self.neutron.create_subnet(body=kwargs)
                     logger.debug("subnet result {}".format(subnet_result))
 
-                    if k == 'wan':
+                    if k == 'wan' or True:
                         logger.info("Connecting WAN to a gateway router")
-                        routers = self.neutron.list_routers(tenant_id=self.project_id)['routers']
-                        if  not routers:
+                        logger.debug("lokking inside id: %s" % self.project_id)
+                        routers =  [r for r in self.neutron.list_routers()["routers"] if r["tenant_id"] == self.project_id]
+                        logger.debug(routers)
+                        #routers = self.neutron.list_routers(tenant_id=self.project_id)['routers']
+                        if len(routers) > 0:
                             router_id = routers[0]['id']
                             logger.debug("router found. id = %s" % router_id)
                         else:

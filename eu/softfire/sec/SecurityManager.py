@@ -425,25 +425,25 @@ class SecurityManager(AbstractManager):
                 tar.add('%s' % tmp_files_path, arcname='')
                 tar.close()
                
-                logger.info("Adding pub key")
-                key_name = "securityResourceKey"
-                pub_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCstoxlkL0kyGoq2LsJSbirdMOTkLGPGAoM7IiWfE/qcTn+Fs5yAV8bBwzVoj0CoNezl9pI+kAjH2HBVr4iKFfGzwbzVJ69Tiabv8fb8Q3Ft35Au3JuxvFCt17rTss13Qpw+SgyQBaqreVfpkvaPf8IC4ByQ1BI0pDkFIIuTIGe+H90v/aVsM1EZFQ6HINlmzUiLFWfcBXToJGXehtYz+2jDNlBKAAjLX/HE5lPdjtCJF5YdVH+K0vcwa/4x0gD26gQU8PeagGHo/ePDERACAVxh6OetuGOd44gRVBPiv08lPrX+ARuTGcvI9MLgFpciD8BzVhJ7b6qL+BOp8mrJXz2KKHGagkhzwQgzB2aiTIdxm7Ih5mGBN3Ht5kCSmC4iFStkyZmRGACZnszqrPrXo5wcpQXpyzL/Dts5FZH0Nfr657Zk9nQdnNQamxb8NV1aIgXyn50jVQoYVwanZu5JSZkArxKKGV7C4Ij11mc1xmKscnz2LMl02ZKaGCFx9et2oIxzfO5lZzP0mWaZNmDdUyGXtqPOMgSjzVwLi+3ZL3yOZtgOG8xdEKvwoGNOfrYyAXk3P7Fa1clJ5S+D/holmvnFP1Zvn2fxAy346y6keecFqm/O1RSoWilhGeSvY9/6I/BrDWl9Oq4pchJ8oWje4a9GdWJLwKS4WEKBAYwiJsvzQ== cirros@securitymanager.com"
-                open_baton.import_key(pub_key, key_name)
-                body = {"keys" : [ key_name ]}
+                #logger.info("Adding pub key")
+                #key_name = "securityResourceKey"
+                #pub_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCstoxlkL0kyGoq2LsJSbirdMOTkLGPGAoM7IiWfE/qcTn+Fs5yAV8bBwzVoj0CoNezl9pI+kAjH2HBVr4iKFfGzwbzVJ69Tiabv8fb8Q3Ft35Au3JuxvFCt17rTss13Qpw+SgyQBaqreVfpkvaPf8IC4ByQ1BI0pDkFIIuTIGe+H90v/aVsM1EZFQ6HINlmzUiLFWfcBXToJGXehtYz+2jDNlBKAAjLX/HE5lPdjtCJF5YdVH+K0vcwa/4x0gD26gQU8PeagGHo/ePDERACAVxh6OetuGOd44gRVBPiv08lPrX+ARuTGcvI9MLgFpciD8BzVhJ7b6qL+BOp8mrJXz2KKHGagkhzwQgzB2aiTIdxm7Ih5mGBN3Ht5kCSmC4iFStkyZmRGACZnszqrPrXo5wcpQXpyzL/Dts5FZH0Nfr657Zk9nQdnNQamxb8NV1aIgXyn50jVQoYVwanZu5JSZkArxKKGV7C4Ij11mc1xmKscnz2LMl02ZKaGCFx9et2oIxzfO5lZzP0mWaZNmDdUyGXtqPOMgSjzVwLi+3ZL3yOZtgOG8xdEKvwoGNOfrYyAXk3P7Fa1clJ5S+D/holmvnFP1Zvn2fxAy346y6keecFqm/O1RSoWilhGeSvY9/6I/BrDWl9Oq4pchJ8oWje4a9GdWJLwKS4WEKBAYwiJsvzQ== cirros@securitymanager.com"
+                #open_baton.import_key(pub_key, key_name)
+                #body = {"keys" : [ key_name ]}
  
                 logger.debug("Open Baton project_id: %s" % ob_project_id)
                 try:
                     with ThreadPoolExecutor(max_workers=1) as executor:
-                        future = executor.submit(open_baton.deploy_package, tar_filename, body, "bridge")
+                        future = executor.submit(open_baton.deploy_package, tar_filename, {}, "bridge")
                         return_val = future.result(60)
  
                     nsr_details = json.loads(return_val)
                     logger.debug(nsr_details)
-                    #nsr_id = nsr_details["id"]
-                    #nsd_id = nsr_details["descriptor_reference"]
+                    nsr_id = nsr_details["id"]
+                    nsd_id = nsr_details["descriptor_reference"]
                     #response["NSR Details"] = {"status": nsr_details["status"]}
-                    #update = True
-                    #disable_port_security = True
+                    update = True
+                    disable_port_security = True
 
                 except Exception as e :
                     exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -721,7 +721,8 @@ class SecurityManager(AbstractManager):
                 except Exception as e:
                     logger.error("Problem contacting Open Baton: {}".format(e))
 
-            if r["os_instance_id"] != "" :
+#            if r["os_instance_id"] != "" :
+            if r["resource_id"] == "pfsense":
                 try:
                     logger.debug("Deleting resource with id: {0}".format(r["os_instance_id"]))
                     openstack = OSclient(r["testbed"], username, r["os_project_id"])
@@ -759,19 +760,23 @@ if __name__ == "__main__":
 
     os.environ["http_proxy"] = ""
 # Fokus
-#    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "")
+    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # Fokus-dev
-    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+#    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+# Surrey
+#    user = UserInfo("softfire", "hRvB2u8K", "bce66fc15ad94db2b291bfe12c8b0f8f", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+# ADS
+#    user = UserInfo("softfire", "hRvB2u8K", "9dfc795ab5bb4bd89ca85969fcc93bfd", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
     pfsense_resource = """properties:
         resource_id: pfsense
-        testbed: fokus-dev
+        testbed: fokus
         wan_name: softfire-network_new
-        lan_name: softfire-internal
+        lan_name: softfire-internal-new
         """
     suricata_resource = """properties:
         resource_id: suricata
         want_agent: True
-        testbed: cane
+        testbed: prova
         rules: 
             - alert icmp any any -> $HOME_NET any (msg:”ICMP test”; sid:1000001; rev:1; classtype:icmp-event;)
             - alert icmp any any -> $HOME_NET any (msg:”ICMP test”; sid:1000001; rev:1; classtype:icmp-event;)
