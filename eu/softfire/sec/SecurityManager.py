@@ -1,6 +1,7 @@
 import shutil, sys, traceback
 import tarfile
 import yaml
+import re
 from IPy import IP
 from sdk.softfire.manager import AbstractManager
 from concurrent.futures import ThreadPoolExecutor
@@ -378,13 +379,82 @@ class SecurityManager(AbstractManager):
             response = {}
 
             openstack = OSclient(testbed, username, os_project_id)
+            ob_project_id = user_info.ob_project_id
+            open_baton = OBClient(ob_project_id)
 
             try:
                 ret = openstack.deploy_pfSense({"wan": properties["wan_name"], "lan": properties["lan_name"]})
-		#logger.debug(ret)
+                logger.debug(ret)
 
-            #    pfsense_ip = ret["ip"]
-            #    os_instance_id = ret["id"]
+                pfsense_ip = ret["ip"]
+                os_instance_id = ret["id"]
+
+                #Deploy bridge VM as pfsense slave
+                logger.info("Starting deploing bridge VM") 
+                scripts_url = "%s/bridge.tar" % self.get_config_value("remote-files", "url")
+                #FIXME dev fix changed url to pull from actual branch. remove into production
+                scripts_url = re.sub("dev", "bug-pfsense_fixing", scripts_url)
+                #################################
+                tar_filename = "%s/bridge.tar" % tmp_files_path
+
+                logger.debug("getting tar from %s to %s" % (scripts_url, tar_filename))
+                r = requests.get(scripts_url, stream=True)
+                with open(tar_filename, 'wb') as fd:
+                    for chunk in r.iter_content(chunk_size=128):
+                        fd.write(chunk)
+
+                tar = tarfile.open(name=tar_filename, mode="r")
+                tar.extractall(path=tmp_files_path)
+                tar.close()
+                
+                with open("%s/vnfd.json" % tmp_files_path, "r") as fd:
+                    vnfd = json.loads(fd.read())
+
+                vnfd["vdu"][0]["vimInstanceName"][0] = vnfd["vdu"][0]["vimInstanceName"][0].format(testbed)
+                logger.debug("vnfd testbed: %s" % vnfd["vdu"][0]["vimInstanceName"])
+
+                vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"] = properties["lan_name"]
+                vnfd["virtual_link"][0]["name"] = properties["lan_name"]
+                logger.debug("virtual_link: %s, vdu connection_point: %s" % (vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"], \
+                                                                             vnfd["virtual_link"][0]["name"]))
+                
+                logger.info("packing VNFD") 
+                with open("%s/vnfd.json" % tmp_files_path, "w") as fd:
+                    fd.write(json.dumps(vnfd))
+                tar = tarfile.open(name=tar_filename, mode='w')
+                tar.add('%s' % tmp_files_path, arcname='')
+                tar.close()
+               
+                logger.info("Adding pub key")
+                key_name = "securityResourceKey"
+                pub_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCstoxlkL0kyGoq2LsJSbirdMOTkLGPGAoM7IiWfE/qcTn+Fs5yAV8bBwzVoj0CoNezl9pI+kAjH2HBVr4iKFfGzwbzVJ69Tiabv8fb8Q3Ft35Au3JuxvFCt17rTss13Qpw+SgyQBaqreVfpkvaPf8IC4ByQ1BI0pDkFIIuTIGe+H90v/aVsM1EZFQ6HINlmzUiLFWfcBXToJGXehtYz+2jDNlBKAAjLX/HE5lPdjtCJF5YdVH+K0vcwa/4x0gD26gQU8PeagGHo/ePDERACAVxh6OetuGOd44gRVBPiv08lPrX+ARuTGcvI9MLgFpciD8BzVhJ7b6qL+BOp8mrJXz2KKHGagkhzwQgzB2aiTIdxm7Ih5mGBN3Ht5kCSmC4iFStkyZmRGACZnszqrPrXo5wcpQXpyzL/Dts5FZH0Nfr657Zk9nQdnNQamxb8NV1aIgXyn50jVQoYVwanZu5JSZkArxKKGV7C4Ij11mc1xmKscnz2LMl02ZKaGCFx9et2oIxzfO5lZzP0mWaZNmDdUyGXtqPOMgSjzVwLi+3ZL3yOZtgOG8xdEKvwoGNOfrYyAXk3P7Fa1clJ5S+D/holmvnFP1Zvn2fxAy346y6keecFqm/O1RSoWilhGeSvY9/6I/BrDWl9Oq4pchJ8oWje4a9GdWJLwKS4WEKBAYwiJsvzQ== cirros@securitymanager.com"
+                open_baton.import_key(pub_key, key_name)
+                body = {"keys" : [ key_name ]}
+ 
+                logger.debug("Open Baton project_id: %s" % ob_project_id)
+                try:
+                    with ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(open_baton.deploy_package, tar_filename, body, "bridge")
+                        return_val = future.result(60)
+ 
+                    nsr_details = json.loads(return_val)
+                    logger.debug(nsr_details)
+                    #nsr_id = nsr_details["id"]
+                    #nsd_id = nsr_details["descriptor_reference"]
+                    #response["NSR Details"] = {"status": nsr_details["status"]}
+                    #update = True
+                    #disable_port_security = True
+
+                except Exception as e :
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    traceback.print_tb(exc_traceback)
+                    msg = e.message or e.args
+                    message = "Error deploying the Package on Open Baton: %s" % msg
+                    logger.error(message)
+                    nsr_id = "ERROR"
+                    update = False
+                    disable_port_security = False
+                    response["NSR Details"] = "ERROR: %s" % message
 
             #    response["ip"] = pfsense_ip
 
@@ -633,7 +703,7 @@ class SecurityManager(AbstractManager):
         username = user_info.name
 
         logger.info("Requested release_resources by user %s" % username)
-        logger.debug("Arrived release_resources\nPayload: %s" % payload)
+        logger.debug("Arrived release_resources. Payload: %s" % payload)
 
         conn = sqlite3.connect(self.resources_db)
         conn.row_factory = sqlite3.Row
@@ -642,6 +712,7 @@ class SecurityManager(AbstractManager):
         query = "SELECT * FROM resources WHERE username = ?"
         res = cur.execute(query, (username,))
         rows = res.fetchall()
+        logger.debug(rows)
         for r in rows:
             if r["ob_nsr_id"] != "" and r["ob_nsr_id"] != "ERROR":
                 try:
@@ -687,10 +758,13 @@ if __name__ == "__main__":
             self.ob_project_id = ob_project_id
 
     os.environ["http_proxy"] = ""
-    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "")
+# Fokus
+#    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "")
+# Fokus-dev
+    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
     pfsense_resource = """properties:
         resource_id: pfsense
-        testbed: fokus
+        testbed: fokus-dev
         wan_name: softfire-network_new
         lan_name: softfire-internal
         """

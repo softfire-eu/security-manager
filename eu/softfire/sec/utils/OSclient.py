@@ -108,6 +108,7 @@ class OSclient :
                     logger.debug("New network: {}".format(selected_networks[k]))
 
                     network_result = self.neutron.create_network(body=kwargs)['network']
+                    networks[selected_networks[k]] = network_result
                     logger.debug("network result {}".format(network_result))
 
                     #subnet configs
@@ -151,7 +152,10 @@ class OSclient :
                             logger.debug(router_result)
                             
                             #softfire-network network_id (external)
-                            body_value = {"network_id": 'bb66c902-d219-4d09-a065-9949bce9795b'}
+                            # TODO if default name differs raise error and exit
+                            ext_net = [ext_net for ext_net in self.neutron.list_networks()['networks'] if ext_net['router:external']][0]
+                            logger.debug("external network id: %s" % ext_net["id"])
+                            body_value = {"network_id": ext_net['id']}
                             gateway_result = self.neutron.add_gateway_router(router=router_result['router']['id'], body=body_value)
                             logger.debug(gateway_result)
                             
@@ -214,8 +218,12 @@ class OSclient :
 
     def delete_server(self, server_id):
         logger.debug("Deleting server {0}".format(server_id))
-        s = self.nova.servers.get(server_id)
-        s.delete()
+        try:
+            s = self.nova.servers.get(server_id)
+            logger.debug(s)
+            s.delete()
+        except Exception as e:
+            logger.error(e)
 
     def allow_forwarding(self, server_id):
         logger.debug("")

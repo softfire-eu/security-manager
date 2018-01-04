@@ -1,5 +1,6 @@
 from org.openbaton.cli.agents.agents import OpenBatonAgentFactory
 from eu.softfire.sec.utils.utils import *
+import re
 
 logger = get_logger(config_path, __name__)
 
@@ -33,6 +34,9 @@ class OBClient :
 
         # r = requests.get("%s/nsd-fw.json" % remote_url)
         logger.debug("requesting NSD for type: %s" % resource_type)
+        #FIXME remove from production
+        if resource_type == "bridge":
+            remote_url = re.sub("dev", "bug-pfsense_fixing", remote_url)
         r = requests.get("%s/nsd-%s.json" % (remote_url, resource_type))
         logger.debug(r)
 
@@ -86,11 +90,12 @@ class OBClient :
     def import_key(self, ssh_pub_key, name):
         agent = self.agent
         project_id = self.project_id
+        logger.debug("project id: %s" % self.project_id)
         key_agent = agent.get_key_agent(project_id)
         for key in json.loads(key_agent.find()):
             print(key)
             if key.get('name') == name:
                 key_agent.delete(key.get('id'))
                 break
-
+        logger.debug("name: %s, key: %s" % (name, ssh_pub_key))
         key_agent.create(json.dumps({"name": name, "projectId": project_id, "publicKey": ssh_pub_key}))
