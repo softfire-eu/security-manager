@@ -200,6 +200,8 @@ class OSclient :
             if current_attempt > max_attempts:
                 raise OpenStackDeploymentError(message="Timeout in openstack server building process")
 
+        lan_ip_dict = new_server.networks
+        logger.debug(lan_ip_dict)
         logger.info("pfSense instance is ACTIVE")
         floating_ip_to_add = None
         flips = self.neutron.list_floatingips()
@@ -218,7 +220,9 @@ class OSclient :
         else:
             OpenStackDeploymentError(message="Unable to associate Floating IP")
 
-        return {"id" : id, "ip" : floating_ip_to_add}
+        
+
+        return {"id" : id, "ip" : floating_ip_to_add, "lan_ip": lan_ip_dict[selected_networks['lan']][0]}
 
     def delete_server(self, server_id):
         logger.debug("Deleting server {0}".format(server_id))
