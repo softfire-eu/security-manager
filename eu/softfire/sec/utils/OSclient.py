@@ -165,7 +165,8 @@ class OSclient :
                             router_id = router_result['router']['id']
                         
                         body_value = {'subnet_id': subnet_result["subnets"][0]['id']}
-                        self.neutron.add_interface_router(router=router_id, body=body_value) 
+                        interface_result = self.neutron.add_interface_router(router=router_id, body=body_value)
+                        logger.debug(interface_result)
 
                     logger.info("network successfully created and configured")
                 except Exception as e:

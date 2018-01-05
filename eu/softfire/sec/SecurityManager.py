@@ -439,13 +439,30 @@ class SecurityManager(AbstractManager):
  
                     nsr_details = json.loads(return_val)
                     logger.debug(nsr_details)
-                    nsr_id = nsr_details["id"]
-                    nsd_id = nsr_details["descriptor_reference"]
+
+                    # saving bridge info to db to later update phase
+                    conn = sqlite3.connect(self.resources_db)
+                    cur = conn.cursor()
+                    #TODO remove OB id after deploying bridge from OS
+                    query = "INSERT INTO resources (username, resource_id, ob_project_id, ob_nsr_id, ob_nsd_id, testbed, random_id, os_project_id, os_instance_id, to_update) \
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            
+                    logger.info("Saving project to db. user=%s, resource_id=%s" % (username, resource_id))
+                    logger.debug("Executing %s" % query)
+                    logger.debug("value = {%s, %s, %s, %s, %s, %s, %s, %s, %s, %s}" % (username, "bridge", ob_project_id, nsr_details["id"], nsr_details["descriptor_reference"], testbed, random_id, os_project_id, "NONE", True))
+            
+                    cur.execute(query, (username, "bridge", ob_project_id, nsr_details["id"], nsr_details["descriptor_reference"], testbed, random_id, os_project_id, "NONE", True))
+                    conn.commit()
+                    conn.close()
+
+                    #nsr_id = nsr_details["id"]
+                    #nsd_id = nsr_details["descriptor_reference"]
                     #response["NSR Details"] = {"status": nsr_details["status"]}
-                    update = True
-                    disable_port_security = True
+                    #update = True
+                    #disable_port_security = True
 
                 except Exception as e :
+                    #TODO
                     exc_type, exc_value, exc_traceback = sys.exc_info()
                     traceback.print_tb(exc_traceback)
                     msg = e.message or e.args
@@ -579,10 +596,11 @@ class SecurityManager(AbstractManager):
             return result
 
         for r in rows:
-            logger.debug("Now checking nsr_id:%s" % r["ob_project_id"])
+            logger.debug("Now checking %s nsr_id:%s" % (r["resource_id"], r["ob_project_id"]))
             s = {}
             '''nsr_id and ob_project_id could be empty with want_agent'''
             nsr_id = r["ob_nsr_id"]
+            resource_id = r["resource_id"]
             ob_project_id = r["ob_project_id"]
             testbed = r["testbed"]
             os_project_id = r["os_project_id"]
@@ -630,6 +648,22 @@ class SecurityManager(AbstractManager):
                 '''Open Baton resource'''
                 logger.debug("Checking resource nsr_id: %s" % nsr_id)
 
+                if resource_id == "bridge":
+                    logger.debug("now updating bridge")
+
+                    open_baton = OBClient(ob_project_id)
+                    agent = open_baton.agent
+                    nsr_agent = agent.get_ns_records_agent(project_id=ob_project_id)
+                    ob_resp = nsr_agent.find(nsr_id)
+                    time.sleep(5)
+                    nsr_details = json.loads(ob_resp)
+                    logger.debug("bridge nsr details: %s" % nsr_details)
+                    logger.debug("server id: %s" % nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"])
+
+                    bridge_vdu = nsr_details["vnfr"][0]["vdu"][1]
+                    floating_ip = bridge_vdu["vnfc_instance"][0]["floatingIps"][0]["ip"]
+
+                    return {}
                 try:
                     open_baton = OBClient(ob_project_id)
                     agent = open_baton.agent
@@ -760,16 +794,16 @@ if __name__ == "__main__":
 
     os.environ["http_proxy"] = ""
 # Fokus
-    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+#    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # Fokus-dev
-#    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # Surrey
 #    user = UserInfo("softfire", "hRvB2u8K", "bce66fc15ad94db2b291bfe12c8b0f8f", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # ADS
 #    user = UserInfo("softfire", "hRvB2u8K", "9dfc795ab5bb4bd89ca85969fcc93bfd", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
     pfsense_resource = """properties:
         resource_id: pfsense
-        testbed: fokus
+        testbed: fokus-dev
         wan_name: softfire-network_new
         lan_name: softfire-internal-new
         """
@@ -785,8 +819,9 @@ if __name__ == "__main__":
 
     resource = pfsense_resource
     sec = SecurityManager(config_path)
-    sec.validate_resources(user, payload=resource)
-    sec.provide_resources(user, payload=resource)
-    input("hit enter to release...")
+    #sec.validate_resources(user, payload=resource)
+    #sec.provide_resources(user, payload=resource)
+    input("hit enter to update...")
     sec._update_status()
-    sec.release_resources(user)
+    input("hit enter to release")
+    #sec.release_resources(user)
