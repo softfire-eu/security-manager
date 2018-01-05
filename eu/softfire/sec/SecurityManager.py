@@ -2,6 +2,7 @@ import shutil, sys, traceback
 import tarfile
 import yaml
 import re
+import pexpect
 from IPy import IP
 from sdk.softfire.manager import AbstractManager
 from concurrent.futures import ThreadPoolExecutor
@@ -671,6 +672,16 @@ class SecurityManager(AbstractManager):
                         query = "SELECT lan_ip FROM resources WHERE resource_id='pfsense' AND username=?"
                         pfsense_lan_ip = cur.execute(query, [username]).fetchone()[0]
                         logger.debug(pfsense_lan_ip)
+                        try:
+                            logger.info("starting configuring pfsense")
+                            child = pexpect.spawn ('ssh -y -t cirros@%s ssh -y -t root@%s easyrule pass wan tcp any any 22' % (floating_ip, pfsense_lan_ip))
+                            child.expect ('password:')
+                            child.sendline ('gocubsgo')
+                            child.expect ('password:')
+                            child.sendline ('pfsense')
+                            child.interact() 
+                        except Exception as e:
+                           logger.error(e)
                     else:
                         logger.info("bridge not ready")
                     #cirros pw: gocubsgo
@@ -808,14 +819,14 @@ if __name__ == "__main__":
 # Fokus
     user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # Fokus-dev
-#    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # Surrey
 #    user = UserInfo("softfire", "hRvB2u8K", "bce66fc15ad94db2b291bfe12c8b0f8f", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # ADS
 #    user = UserInfo("softfire", "hRvB2u8K", "9dfc795ab5bb4bd89ca85969fcc93bfd", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
     pfsense_resource = """properties:
         resource_id: pfsense
-        testbed: fokus
+        testbed: fokus-dev
         wan_name: softfire-network_new
         lan_name: softfire-internal-new
         """
