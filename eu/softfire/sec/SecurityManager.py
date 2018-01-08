@@ -155,6 +155,7 @@ class SecurityManager(AbstractManager):
         os_project_id = ""
         os_instance_id = ""
         lan_ip = None
+        floating_ip = None
         testbed = ""
         update = False
         disable_port_security = False
@@ -391,6 +392,7 @@ class SecurityManager(AbstractManager):
                 pfsense_ip = ret["ip"]
                 os_instance_id = ret["id"]
                 lan_ip = ret['lan_ip']
+                floating_ip = ret['ip']
                 logger.debug("ip: %s, len %d" % (lan_ip, len(lan_ip)))
 
                 #Deploy bridge VM as pfsense slave
@@ -458,6 +460,8 @@ class SecurityManager(AbstractManager):
                     cur.execute(query, (username, "bridge", ob_project_id, nsr_details["id"], nsr_details["descriptor_reference"], testbed, random_id, os_project_id, "NONE", True))
                     conn.commit()
                     conn.close()
+
+                    response["staus"] = "loading"
 
                     #nsr_id = nsr_details["id"]
                     #nsd_id = nsr_details["descriptor_reference"]
@@ -547,15 +551,15 @@ class SecurityManager(AbstractManager):
 
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
-        query = "INSERT INTO resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, os_project_id, os_instance_id, to_update, disable_port_security, lan_ip) \
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        query = "INSERT INTO resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, os_project_id, os_instance_id, to_update, disable_port_security, lan_ip, floating_ip) \
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
         logger.info("Saving project to db. user=%s, resource_id=%s" % (username, resource_id))
         logger.debug("Executing %s" % query)
         logger.debug("lan_ip obj type: %s" % type(lan_ip))
         logger.debug("value = {%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s}" % (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security, lan_ip))
 
-        cur.execute(query, (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security, lan_ip))
+        cur.execute(query, (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security, lan_ip, floating_ip))
         conn.commit()
         conn.close()
 
@@ -665,12 +669,14 @@ class SecurityManager(AbstractManager):
                     #logger.debug("bridge nsr details: %s" % nsr_details)
                     #logger.debug("server id: %s" % nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"])
 
-                    bridge_vdu = nsr_details["vnfr"][0]["vdu"][0]
-                    if len(bridge_vdu["vnfc_instance"]) > 0:
+                    if len(nsr_details["vnfr"]) > 0 and len(nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"]) > 0:
+                        bridge_vdu = nsr_details["vnfr"][0]["vdu"][0]
                         floating_ip = bridge_vdu["vnfc_instance"][0]["floatingIps"][0]["ip"]
                         logger.info("bridge floating ip: %s" % floating_ip)
-                        query = "SELECT lan_ip FROM resources WHERE resource_id='pfsense' AND username=?"
-                        pfsense_lan_ip = cur.execute(query, [username]).fetchone()[0]
+                        query = "SELECT lan_ip, floating_ip FROM resources WHERE resource_id='pfsense' AND username=?"
+                        pfsense_res = cur.execute(query, [username]).fetchone()[0]
+                        pfsense_lan_ip = pfsense_res['lan_ip']
+                        pfsense_floating_ip = pfsense_res['floating_ip']
                         logger.debug(pfsense_lan_ip)
                         try:
                             cmd_str = ['ssh-keygen -R %s' % floating_ip,
@@ -709,6 +715,8 @@ class SecurityManager(AbstractManager):
 
                             except Exception as e:
                                 logger.error("Problem contacting Open Baton: {}".format(e))
+
+                            response["ip"] = pfsense_floating_ip
                         except Exception as e:
                            logger.error(e)
                     else:
@@ -846,16 +854,17 @@ if __name__ == "__main__":
 
     os.environ["http_proxy"] = ""
 # Fokus
-    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+#    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # Fokus-dev
 #    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # Surrey
 #    user = UserInfo("softfire", "hRvB2u8K", "bce66fc15ad94db2b291bfe12c8b0f8f", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # ADS
-#    user = UserInfo("softfire", "hRvB2u8K", "9dfc795ab5bb4bd89ca85969fcc93bfd", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+    user = UserInfo("softfire", "hRvB2u8K", "9dfc795ab5bb4bd89ca85969fcc93bfd", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+
     pfsense_resource = """properties:
         resource_id: pfsense
-        testbed: fokus
+        testbed: ads
         wan_name: softfire-network_new
         lan_name: softfire-internal-new
         """
@@ -872,7 +881,7 @@ if __name__ == "__main__":
     resource = pfsense_resource
     sec = SecurityManager(config_path)
     #sec.validate_resources(user, payload=resource)
-    sec.provide_resources(user, payload=resource)
+    #sec.provide_resources(user, payload=resource)
     input("hit enter to update...")
     while True:
         sec._update_status()
