@@ -177,6 +177,7 @@ class OSclient :
             name=extended_name,
             image=self.nova.glance.find_image(image_name),
             flavor=self.nova.flavors.find(name=flavor),
+            security_groups=["ob_sec_group"],
             #CHECK nics order
 #            nics=[{'net-id': self.neutron.list_networks(tenant_id=self.project_id, name=selected_networks[k])["networks"][0]["id"]} for k in selected_networks.keys()])
             nics=[{'net-id': networks[selected_networks[k]]["id"]} for k in selected_networks.keys()])

@@ -673,9 +673,12 @@ class SecurityManager(AbstractManager):
                         pfsense_lan_ip = cur.execute(query, [username]).fetchone()[0]
                         logger.debug(pfsense_lan_ip)
                         try:
+                            cmd_str = ['ssh-keygen -R %s' % floating_ip, 'ssh -o StrictHostKeyChecking=no -y -t cirros@%s ssh -y -t root@%s easyrule pass wan tcp any any 22' % (floating_ip, pfsense_lan_ip)]
+                            logger.debug(cmd_str)
                             logger.info("starting configuring pfsense")
-                            child = pexpect.spawn ('ssh -y -t cirros@%s ssh -y -t root@%s easyrule pass wan tcp any any 22' % (floating_ip, pfsense_lan_ip))
-                            child.expect ('password:')
+                            child = pexpect.spawn(cmd_str[0])
+                            child = pexpect.spawn(cmd_str[1], timeout=60)
+                            child.expect ('password:.')
                             child.sendline ('gocubsgo')
                             child.expect ('password:')
                             child.sendline ('pfsense')
@@ -817,16 +820,16 @@ if __name__ == "__main__":
 
     os.environ["http_proxy"] = ""
 # Fokus
-    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+#    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # Fokus-dev
-    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+#    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # Surrey
 #    user = UserInfo("softfire", "hRvB2u8K", "bce66fc15ad94db2b291bfe12c8b0f8f", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # ADS
-#    user = UserInfo("softfire", "hRvB2u8K", "9dfc795ab5bb4bd89ca85969fcc93bfd", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+    user = UserInfo("softfire", "hRvB2u8K", "9dfc795ab5bb4bd89ca85969fcc93bfd", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
     pfsense_resource = """properties:
         resource_id: pfsense
-        testbed: fokus-dev
+        testbed: ads
         wan_name: softfire-network_new
         lan_name: softfire-internal-new
         """
@@ -843,10 +846,10 @@ if __name__ == "__main__":
     resource = pfsense_resource
     sec = SecurityManager(config_path)
     #sec.validate_resources(user, payload=resource)
-    sec.provide_resources(user, payload=resource)
+    #sec.provide_resources(user, payload=resource)
     input("hit enter to update...")
     while True:
         sec._update_status()
         input("hit enter to release")
-        break
-    sec.release_resources(user)
+    #    break
+    #sec.release_resources(user)
