@@ -612,6 +612,12 @@ class SecurityManager(AbstractManager):
                             s["lan ip"] = pfsense_lan_ip
                             s["username"] = "root"
                             s["password"] = "pfsense"
+                            if username not in result.keys():
+                                result[username] = []
+                            result[username].append(json.dumps(s))
+                            logger.debug(result)
+                            return result
+
                         except Exception as e:
                            logger.error(e)
                            s["status"] = "ERROR deploying pfense"
