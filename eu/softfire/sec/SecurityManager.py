@@ -585,7 +585,7 @@ class SecurityManager(AbstractManager):
                         logger.debug(pfsense_lan_ip)
                         try:
 
-                            exit_status = os.system("python %s %s %s" % (os.path.join(os.environ['PYTHONPATH'], "eu/softfire/sec/utils/pfsense_utils.py"), floating_ip, pfsense_lan_ip))
+                            exit_status = os.system("python %s %s %s" % ("./eu/softfire/sec/utils/pfsense_utils.py", floating_ip, pfsense_lan_ip))
                             logger.debug("exit status %d" % exit_status)
                             if exit_status != 0:
                                 s["status"] = "Loading"
@@ -622,6 +622,11 @@ class SecurityManager(AbstractManager):
                     else:
                         logger.info("bridge not ready")
                         s["status"] = "Loading"
+                        if username not in result.keys():
+                            result[username] = []
+                        result[username].append(json.dumps(s))
+                        logger.debug(result)
+                        return result
 
                 try:
                     open_baton = OBClient(ob_project_id)
