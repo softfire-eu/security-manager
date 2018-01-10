@@ -63,3 +63,4 @@ texttable==1.1.1
 urllib3==1.22
 warlock==1.2.0
 wrapt==1.10.11
+pexpect==4.3.1
