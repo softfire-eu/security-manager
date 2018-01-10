@@ -430,13 +430,7 @@ class SecurityManager(AbstractManager):
                 tar = tarfile.open(name=tar_filename, mode='w')
                 tar.add('%s' % tmp_files_path, arcname='')
                 tar.close()
-               
-                #logger.info("Adding pub key")
-                #key_name = "securityResourceKey"
-                #pub_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCstoxlkL0kyGoq2LsJSbirdMOTkLGPGAoM7IiWfE/qcTn+Fs5yAV8bBwzVoj0CoNezl9pI+kAjH2HBVr4iKFfGzwbzVJ69Tiabv8fb8Q3Ft35Au3JuxvFCt17rTss13Qpw+SgyQBaqreVfpkvaPf8IC4ByQ1BI0pDkFIIuTIGe+H90v/aVsM1EZFQ6HINlmzUiLFWfcBXToJGXehtYz+2jDNlBKAAjLX/HE5lPdjtCJF5YdVH+K0vcwa/4x0gD26gQU8PeagGHo/ePDERACAVxh6OetuGOd44gRVBPiv08lPrX+ARuTGcvI9MLgFpciD8BzVhJ7b6qL+BOp8mrJXz2KKHGagkhzwQgzB2aiTIdxm7Ih5mGBN3Ht5kCSmC4iFStkyZmRGACZnszqrPrXo5wcpQXpyzL/Dts5FZH0Nfr657Zk9nQdnNQamxb8NV1aIgXyn50jVQoYVwanZu5JSZkArxKKGV7C4Ij11mc1xmKscnz2LMl02ZKaGCFx9et2oIxzfO5lZzP0mWaZNmDdUyGXtqPOMgSjzVwLi+3ZL3yOZtgOG8xdEKvwoGNOfrYyAXk3P7Fa1clJ5S+D/holmvnFP1Zvn2fxAy346y6keecFqm/O1RSoWilhGeSvY9/6I/BrDWl9Oq4pchJ8oWje4a9GdWJLwKS4WEKBAYwiJsvzQ== cirros@securitymanager.com"
-                #open_baton.import_key(pub_key, key_name)
-                #body = {"keys" : [ key_name ]}
- 
+
                 logger.debug("Open Baton project_id: %s" % ob_project_id)
                 try:
                     with ThreadPoolExecutor(max_workers=1) as executor:
@@ -595,7 +589,10 @@ class SecurityManager(AbstractManager):
                             logger.debug("exit status %d" % exit_status)
                             if exit_status != 0:
                                 s["status"] = "Loading"
-                                return json.dumps(s)
+                                if username not in result.keys():
+                                    result[username] = []
+                                result[username].append(json.dumps(s))
+                                return result
 
                             try:
                                 open_baton = OBClient(r["ob_project_id"])
@@ -608,10 +605,9 @@ class SecurityManager(AbstractManager):
                             except Exception as e:
                                 logger.error("Problem contacting Open Baton: {}".format(e))
 
-                            s["floating ip"] = pfsense_floating_ip
+                            s["floating ip"] = [pfsense_floating_ip, {"VM credentials": {"username": "root", "password": "pfsense"}}]
                             s["lan ip"] = pfsense_lan_ip
-                            s["username"] = "root"
-                            s["password"] = "pfsense"
+                            s["dashboard credentials"] =  {"username": "admin", "password": "pfsense"}
                             if username not in result.keys():
                                 result[username] = []
                             result[username].append(json.dumps(s))

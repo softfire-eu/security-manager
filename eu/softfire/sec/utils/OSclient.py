@@ -135,7 +135,6 @@ class OSclient :
                         logger.debug("lokking inside id: %s" % self.project_id)
                         routers =  [r for r in self.neutron.list_routers()["routers"] if r["tenant_id"] == self.project_id]
                         logger.debug(routers)
-                        #routers = self.neutron.list_routers(tenant_id=self.project_id)['routers']
                         if len(routers) > 0:
                             router_id = routers[0]['id']
                             logger.debug("router found. id = %s" % router_id)
@@ -146,16 +145,10 @@ class OSclient :
                                                          'admin_state_up': True,
                                                          'distributed': False,
                                                          'name': "{}_gateway".format(self.tenant_name),}}
-                                          #'ha': False,
-                                          #'availability_zone': ['nova'],
-                                          #'external_gateway_info': {'enable_snat': True, 
-                                          #                         'network_id': 'bb66c902-d219-4d09-a065-9949bce9795b', 
-                                          #                         'external_fixed_ips': [{'subnet_id': 'ab79af9e-3ada-4129-951a-8437490d081f', 'ip_address': '172.20.30.134'}]}}
                             router_result = self.neutron.create_router(router_request)
                             logger.debug(router_result)
                             
                             #softfire-network network_id (external)
-                            # TODO if default name differs raise error and exit
                             ext_net = [ext_net for ext_net in self.neutron.list_networks()['networks'] if ext_net['router:external']][0]
                             logger.debug("external network id: %s" % ext_net["id"])
                             body_value = {"network_id": ext_net['id']}
@@ -178,9 +171,8 @@ class OSclient :
             image=self.nova.glance.find_image(image_name),
             flavor=self.nova.flavors.find(name=flavor),
             security_groups=["ob_sec_group"],
-            #CHECK nics order
-#            nics=[{'net-id': self.neutron.list_networks(tenant_id=self.project_id, name=selected_networks[k])["networks"][0]["id"]} for k in selected_networks.keys()])
-            nics=[{'net-id': networks[selected_networks[k]]["id"]} for k in selected_networks.keys()])
+            nics=[{'net-id': networks[selected_networks["wan"]]["id"]}, {'net-id': networks[selected_networks["lan"]]["id"]}]
+          )
         id = new_server.id
         logger.info("pfSense created, id: {}".format(id))
 
@@ -216,7 +208,7 @@ class OSclient :
                 break
 
         if floating_ip_to_add:
-            new_server.add_floating_ip(floating_ip_to_add)
+            new_server.add_floating_ip(floating_ip_to_add, lan_ip_dict[selected_networks['wan']][0])
             logger.debug("floating ip {0} added".format(floating_ip_to_add))
         else:
             OpenStackDeploymentError(message="Unable to associate Floating IP")
