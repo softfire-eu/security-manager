@@ -463,12 +463,6 @@ class SecurityManager(AbstractManager):
 
                     response["staus"] = "loading"
 
-                    #nsr_id = nsr_details["id"]
-                    #nsd_id = nsr_details["descriptor_reference"]
-                    #response["NSR Details"] = {"status": nsr_details["status"]}
-                    #update = True
-                    #disable_port_security = True
-
                 except Exception as e :
                     #TODO
                     exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -479,66 +473,8 @@ class SecurityManager(AbstractManager):
                     nsr_id = "ERROR"
                     update = False
                     disable_port_security = False
-                    response["NSR Details"] = "ERROR: %s" % message
-
-            #    response["ip"] = pfsense_ip
-
-            #    """Allow forwarding on pfSense"""
-            #    openstack.allow_forwarding(os_instance_id)
-
-            #    update = True
-            #    disable_port_security = False
-
-            #    fauxapi_apikey = get_config("pfsense", "fauxapi-apikey", config_path)
-            #    fauxapi_apisecret = get_config("pfsense", "fauxapi-apisecret", config_path)
-
-            #    #Initialize communication with ReST server pfSense (wait pfSense to be up and running)
-            #    logger.debug("pfsense IP: %s" % pfsense_ip)
-            #    api = FauxapiLib(pfsense_ip, fauxapi_apikey, fauxapi_apisecret, debug=True)
-
-            #    reachable = False
-            #    for i in range(60):
-            #        try:
-            #            config = api.config_get()
-            #            reachable = True
-            #            break
-            #        except requests.exceptions.ConnectionError:
-            #            logger.debug("Pfsense not Reachable. trying again")
-            #            time.sleep(2)
-
-            #    if reachable:
-            #        u = config["system"]["user"][0]
-
-            #        u["name"] = username
-            #        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-            #        bic = hashed.decode()
-            #        u["bcrypt-hash"] = bic
-
-            #        # TODO Add to config command that stores the FauxAPI Key
-            #        credentials_file = "/etc/fauxapi/credentials.ini"
-            #        local_script_path = "/etc/softfire/security-manager/inject_credentials"
-            #        pfsense_script_path = "/root/inject_credentials"
-
-            #        ssh = SSHClient()
-            #        ssh.set_missing_host_key_policy(AutoAddPolicy())
-            #        ssh.load_system_host_keys()
-            #        ssh.connect(hostname=pfsense_ip, port=22, username="root", password="pfsense")
-            #        scp = SCPClient(ssh.get_transport())
-            #        scp.put(files=local_script_path, remote_path=pfsense_script_path)
-
-            #        apisecret_value = random_string(60)
-            #        config["system"]["shellcmd"] = [
-            #            "sh {0} {1} {2} {3}".format(pfsense_script_path, credentials_file, username, apisecret_value)]
-
-            #        time.sleep(10)
-            #        api.config_set(config)
-            #        api.config_reload()
-            #        api.system_reboot()
-            #        response["ip"] = pfsense_ip
-            #        response["FauxAPI-ApiKey"] = "[PFFA%s]" % username
-            #        response["FauxAPI-ApiSecret"] = apisecret_value
-            #    else:
-            #        raise Exception("pfsense not reachable")
+                    response["NSR Details"] = "ERROR: %s" % messag
+    
 
             except Exception as e:
                 logger.error(e)
@@ -574,16 +510,6 @@ class SecurityManager(AbstractManager):
         #logger = get_logger(config_path)
         logger.debug("Checking status update")
         result = {}
-
-        """
-        if args[0] == "configure_pfsense" : 
-            pfsense_ip = args[1]
-            username = args[2]
-            password = args[3]
-
-            #openstack = OSclient(testbed, username, os_project_id)
-            #pfsense_ip = openstack.get_fl_ip_from_id(os_instance_id)
-        """
 
         try :
             conn = sqlite3.connect(self.resources_db)
@@ -639,19 +565,6 @@ class SecurityManager(AbstractManager):
                     logger.error("Problem contacting the log collector: %s" % e)
                     s["dashboard_log_link"] = "ERROR"
 
-            """
-            #Probably useless
-            if nsr_id == "":
-                link = "http://%s:%s/%s/%s" % (get_config("system", "ip", config_file_path=config_path),
-                                               get_config("api", "port", config_file_path=config_path), resource_id,
-                                               random_id)
-                s["download_link"] = link
-
-            elif nsr_id == "ERROR" :w
-                s["status"] = "Error deploying the Package on Open Baton"
-            ###################
-            """
-
             if r["to_update"] == True:
 
                 '''Open Baton resource'''
@@ -666,64 +579,72 @@ class SecurityManager(AbstractManager):
                     ob_resp = nsr_agent.find(nsr_id)
                     time.sleep(5)
                     nsr_details = json.loads(ob_resp)
-                    #logger.debug("bridge nsr details: %s" % nsr_details)
-                    #logger.debug("server id: %s" % nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"])
 
                     if len(nsr_details["vnfr"]) > 0 and len(nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"]) > 0:
                         bridge_vdu = nsr_details["vnfr"][0]["vdu"][0]
                         floating_ip = bridge_vdu["vnfc_instance"][0]["floatingIps"][0]["ip"]
                         logger.info("bridge floating ip: %s" % floating_ip)
                         query = "SELECT lan_ip, floating_ip FROM resources WHERE resource_id='pfsense' AND username=?"
-                        pfsense_res = cur.execute(query, [username]).fetchone()[0]
+                        pfsense_res = cur.execute(query, [username]).fetchone()
                         pfsense_lan_ip = pfsense_res['lan_ip']
                         pfsense_floating_ip = pfsense_res['floating_ip']
                         logger.debug(pfsense_lan_ip)
                         try:
-                            cmd_str = ['ssh-keygen -R %s' % floating_ip,
-                                       'ssh -o StrictHostKeyChecking=no -y -t cirros@%s ssh -y -t root@%s easyrule pass wan tcp any any 22' % (floating_ip, pfsense_lan_ip),
-                                       'ssh -o StrictHostKeyChecking=no -y -t cirros@%s ssh -y -t root@%s easyrule pass wan tcp any any 80' % (floating_ip, pfsense_lan_ip),
-                                       'ssh -o StrictHostKeyChecking=no -y -t cirros@%s ssh -y -t root@%s easyrule pass wan tcp any any 443' % (floating_ip, pfsense_lan_ip)]
+                            try:
+                                cmd_str = ['ssh-keygen -R %s' % floating_ip,
+                                           'ssh -o StrictHostKeyChecking=no -y -t cirros@%s ssh -y -t root@%s easyrule pass wan tcp any any 22' % (floating_ip, pfsense_lan_ip),
+                                           'ssh -o StrictHostKeyChecking=no -y -t cirros@%s ssh -y -t root@%s easyrule pass wan tcp any any 80' % (floating_ip, pfsense_lan_ip),
+                                           'ssh -o StrictHostKeyChecking=no -y -t cirros@%s ssh -y -t root@%s easyrule pass wan tcp any any 443' % (floating_ip, pfsense_lan_ip)]
 
-                            logger.debug(cmd_str)
-                            logger.info("starting configuring pfsense")
-                            child = pexpect.spawn(cmd_str[0])
-                            child = pexpect.spawn(cmd_str[1])
-                            child.expect ('password:.')
-                            child.sendline ('gocubsgo')
-                            child.expect ('password:')
-                            child.sendline ('pfsense')
-                            child.interact()
-                            child = pexpect.spawn(cmd_str[2])
-                            child.expect ('password:.')
-                            child.sendline ('gocubsgo')
-                            child.expect ('password:')
-                            child.sendline ('pfsense')
-                            child.interact() 
-                            child = pexpect.spawn(cmd_str[3])
-                            child.expect ('password:.')
-                            child.sendline ('gocubsgo')
-                            child.expect ('password:')
-                            child.sendline ('pfsense')
-                            child.interact()
+                                logger.debug(cmd_str)
+                                logger.info("starting configuring pfsense")
+                                child = pexpect.spawn(cmd_str[0])
+                                child = pexpect.spawn(cmd_str[1])
+                                child.expect ('password:.')
+                                child.sendline ('gocubsgo')
+                                child.expect ('password:')
+                                child.sendline ('pfsense')
+                                child.interact()
+                                child = pexpect.spawn(cmd_str[2])
+                                child.expect ('password:.')
+                                child.sendline ('gocubsgo')
+                                child.expect ('password:')
+                                child.sendline ('pfsense')
+                                child.interact() 
+                                child = pexpect.spawn(cmd_str[3])
+                                child.expect ('password:.')
+                                child.sendline ('gocubsgo')
+                                child.expect ('password:')
+                                child.sendline ('pfsense')
+                                child.interact()
+                            except Exception as e:
+                                logger.error(e)
+                                return
 
                             try:
                                 open_baton = OBClient(r["ob_project_id"])
                                 open_baton.delete_ns(nsr_id=r["ob_nsr_id"], nsd_id=r["ob_nsd_id"])
 
-                                query = "DELETE FROM resources WHERE username = ? AND resource_id = 'bridge'"
-                                cur.execute(query, (username,))
+                                query = "DELETE FROM resources WHERE username = ? AND resource_id = ?"
+                                logger.debug("executing query")
+                                execute_query(self.resources_db, query, (username, "bridge"))
 
                             except Exception as e:
                                 logger.error("Problem contacting Open Baton: {}".format(e))
 
-                            response["ip"] = pfsense_floating_ip
+                            s["floating ip"] = pfsense_floating_ip
+                            s["lan ip"] = pfsense_lan_ip
+                            s["username"] = "root"
+                            s["password"] = "pfsense"
                         except Exception as e:
                            logger.error(e)
+                           s["status"] = "ERROR deploying pfense"
+                           return json.dumps(s)
+                           
                     else:
                         logger.info("bridge not ready")
-                    #cirros pw: gocubsgo
+                        s["status"] = "Loading"
 
-                    return {}
                 try:
                     open_baton = OBClient(ob_project_id)
                     agent = open_baton.agent
