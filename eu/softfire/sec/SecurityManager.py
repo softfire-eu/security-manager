@@ -398,9 +398,6 @@ class SecurityManager(AbstractManager):
                 #Deploy bridge VM as pfsense slave
                 logger.info("Starting deploing bridge VM") 
                 scripts_url = "%s/bridge.tar" % self.get_config_value("remote-files", "url")
-                #FIXME dev fix changed url to pull from actual branch. remove into production
-                scripts_url = re.sub("dev", "bug-pfsense_fixing", scripts_url)
-                #################################
                 tar_filename = "%s/bridge.tar" % tmp_files_path
 
                 logger.debug("getting tar from %s to %s" % (scripts_url, tar_filename))

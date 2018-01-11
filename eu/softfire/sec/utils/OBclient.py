@@ -36,9 +36,6 @@ class OBClient :
 
         # r = requests.get("%s/nsd-fw.json" % remote_url)
         logger.debug("requesting NSD for type: %s" % resource_type)
-        #FIXME remove from production
-        if resource_type == "bridge":
-            remote_url = re.sub("dev", "bug-pfsense_fixing", remote_url)
         logger.debug("remote url: %s" % remote_url)
         r = requests.get("%s/nsd-%s.json" % (remote_url, resource_type))
 
