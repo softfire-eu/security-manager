@@ -581,8 +581,16 @@ class SecurityManager(AbstractManager):
                         pfsense_floating_ip = pfsense_res['floating_ip']
                         logger.debug(pfsense_lan_ip)
                         try:
+                            tmp_files_path = "%s/tmp/%s" % (self.local_files_path, random_id)
+                            pfsense_scripts_url = "%s/pfsense_utils.py" % re.sub("/etc/resources", "/eu/softfire/sec/utils",self.get_config_value("remote-files", "url"))
+                            script_filename = "%s/pfsenes_utils.py" % tmp_files_path
+                
+                            r = requests.get(pfsense_scripts_url, stream=True)
+                            with open(script_filename, 'wb') as fd:
+                                for chunk in r.iter_content(chunk_size=128):
+                                    fd.write(chunk)                            
 
-                            exit_status = os.system("python %s %s %s" % ("./eu/softfire/sec/utils/pfsense_utils.py", floating_ip, pfsense_lan_ip))
+                            exit_status = os.system("python %s %s %s" % (script_filename, floating_ip, pfsense_lan_ip))
                             logger.debug("exit status %d" % exit_status)
                             if exit_status != 0:
                                 s["status"] = "Loading"
