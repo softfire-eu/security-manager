@@ -185,7 +185,7 @@ class SecurityManager(AbstractManager):
 
             '''Download scripts from remote Repository'''
             scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
-            tar_filename = "%s/%s.tar" % (tmp_files_path, properties["resource_id"])
+            tar_filename = "%s/%s-%s.tar" % (tmp_files_path, properties["resource_id"], random_id)
 
             r = requests.get(scripts_url, stream=True)
             with open(tar_filename, 'wb') as fd:
@@ -313,7 +313,7 @@ class SecurityManager(AbstractManager):
                     vnfd = json.loads(fd.read())
                 print_payload(vnfd, "VNF Descriptor")
                 # if problems occur when all VNF have same name so uncomment
-                #vnfd["name"] += ("-%s" % random_id)
+                vnfd["name"] += ("-%s" % random_id)
                 vnfd["type"] = vnfd["name"]
 
                 vnfd["vdu"][0]["vimInstanceName"] = ["vim-instance-%s" % testbed]
@@ -340,14 +340,14 @@ class SecurityManager(AbstractManager):
                     fd.write(json.dumps(vnfd))
 
                 # if problems occur when all VNF have same name so uncomment
-                #with open("%s/Metadata.yaml" % tmp_files_path, "r") as f:
+                with open("%s/Metadata.yaml" % tmp_files_path, "r") as f:
                 #    #meta_yaml = json.loads(f.read())
-                #    meta_yaml = yaml.load(f)
+                    meta_yaml = yaml.load(f)
 
-                #with open("%s/Metadata.yaml" % tmp_files_path, "w") as f:
-                #    meta_yaml["name"] += ("-%s" % random_id)
+                with open("%s/Metadata.yaml" % tmp_files_path, "w") as f:
+                    meta_yaml["name"] += ("-%s" % random_id)
                 #    #f.write(json.dumps(meta_yaml))
-                #    yaml.dump(meta_yaml, f)
+                    yaml.dump(meta_yaml, f)
 
                 '''Prepare VNFPackage'''
                 tar.add('%s' % tmp_files_path, arcname='')
