@@ -15,7 +15,7 @@ def read(fname):
 
 setup(
     name="security-manager",
-    version="0.2.1",
+    version="0.2.2",
     author="SoftFIRE",
     author_email="softfire@softfire.eu",
     description="The SoftFIRE Security Manager",
@@ -39,6 +39,7 @@ setup(
         'paramiko',
         'scp',
         'idstools',
+        'pexpect',
         ],
     long_description=read('README.md'),
     classifiers=[
