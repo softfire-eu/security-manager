@@ -672,17 +672,21 @@ class SecurityManager(AbstractManager):
                 if s["status"] == "ACTIVE":
                     s["ip"] = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]["ip"]
                     if resource_id == "firewall":
-                        s["api_url"] = "http://%s:5000" % s["ip"]
+                        try:
+                            api_url = "http://%s:5000" % s["ip"]
+                            api_resp = requests.get(api_url)
+                            logger.debug(api_resp)                      
+                            s["api_url"] = api_url
+                        except Exception:
+                            s["status"] = "VM is running but API are unavailable"  
                     try:
-                        api_resp = requests.get(s["api_url"])
-                        logger.debug(api_resp)
                         """Update DB entry to stop sending update"""
                         query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
                         execute_query(self.resources_db, query, (nsr_id, username))
                     except Exception:
-                        s["status"] = "VM is running but API are unavailable"
+                        logger.error("Error updating resource row into DB. attr to_update")
 
-                if s["status"] == "ERORR":
+                if s["status"] == "ERROR":
                     try :
                         query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
                         execute_query(self.resources_db, query, (nsr_id, username))
