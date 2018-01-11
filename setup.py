@@ -39,6 +39,7 @@ setup(
         'paramiko',
         'scp',
         'idstools',
+        'pexpect',
         ],
     long_description=read('README.md'),
     classifiers=[
