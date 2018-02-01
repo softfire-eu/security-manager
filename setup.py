@@ -26,10 +26,12 @@ setup(
     scripts=["security-manager"],
     install_requires=[
         'bcrypt',
+        'bottle',
         'IPy',
         'keystoneauth',
         'python-neutronclient',
         'python-novaclient',
+        'python-glanceclient',
         'openbaton-cli==5.0.1',
         'python-neutronclient',
         'PyYAML',
