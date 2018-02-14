@@ -22,7 +22,7 @@ Features **not** available for Resource _pfsense_
 5. The Experimenters can perform searches among the Resources logs in a web dashboard
 6. The Experimenters can see statistics related to the Resources logs in a web dashboard  
 
-## Security Resources
+### Security Resources
 A Security Resource is a commonly used security agent that the Experimenters can include in their
 experiment. They can access and configure it through a static initial configuration, included in the
 TOSCA description of the Experiment, or, once deployed, through the interfaces that expose its
@@ -53,7 +53,7 @@ The Security Manager provides three types of resources:
 * [pfsense][pfsense]
 
 
-## Security Resource definition
+### Security Resource definition
 In this section the attributes that can be defined for a TOSCA node of type _SecurityResource_ are listed. Please note that
 the meaning of the specific property depends on the type of resource (specified in the *resource_id* field). 
 For more details, refer to the specific sections of the documentation. 
