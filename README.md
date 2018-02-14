@@ -167,7 +167,7 @@ This sequence diagram specifies the operations performed by the Security Manager
 
 ## Technical Requirements
 
-The NFV Manager requires Python 3.5 or higher.
+The Security Manager requires Python 3.5 or higher.
 
 ## Installation and configuration
 
