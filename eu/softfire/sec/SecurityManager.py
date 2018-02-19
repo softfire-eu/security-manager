@@ -362,7 +362,7 @@ class SecurityManager(AbstractManager):
                     nsr_details = json.loads(return_val)
                     nsr_id = nsr_details["id"]
                     nsd_id = nsr_details["descriptor_reference"]
-                    response["NSR Details"] = {"status": nsr_details["status"]}
+                    response["NSR Details"] = {"status": nsr_details["status"], 'nsr_id': nsr_id}
                     update = True
                     disable_port_security = True
 
@@ -452,7 +452,7 @@ class SecurityManager(AbstractManager):
                     conn.commit()
                     conn.close()
 
-                    response["staus"] = "loading"
+                    response["status"] = "loading"
 
                 except Exception as e :
                     #TODO
@@ -526,6 +526,7 @@ class SecurityManager(AbstractManager):
             s = {}
             '''nsr_id and ob_project_id could be empty with want_agent'''
             nsr_id = r["ob_nsr_id"]
+            s['nsr_id'] = nsr_id
             resource_id = r["resource_id"]
             ob_project_id = r["ob_project_id"]
             testbed = r["testbed"]
@@ -683,7 +684,7 @@ class SecurityManager(AbstractManager):
                             logger.debug(api_resp)                      
                             s["api_url"] = api_url
                         except Exception:
-                            s["status"] = "VM is running but API are unavailable"  
+                            s["status"] = "VM is running but API are unavailable"
                     try:
                         """Update DB entry to stop sending update"""
                         query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
