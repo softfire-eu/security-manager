@@ -464,7 +464,7 @@ class SecurityManager(AbstractManager):
                     nsr_id = "ERROR"
                     update = False
                     disable_port_security = False
-                    response["NSR Details"] = "ERROR: %s" % messag
+                    response["NSR Details"] = "ERROR: %s" % message
     
 
             except Exception as e:
