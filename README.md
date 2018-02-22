@@ -1,3 +1,8 @@
+  <img src="https://www.softfire.eu/wp-content/uploads/SoftFIRE_Logo_Fireball-300x300.png" width="120"/>
+
+  Copyright © 2016-2018 [SoftFIRE](https://www.softfire.eu/) and [TU Berlin](http://www.av.tu-berlin.de/next_generation_networks/).
+  Licensed under [Apache v2 License](http://www.apache.org/licenses/LICENSE-2.0).
+
 # Security Manager
 The Security Manager inside the SoftFIRE Middleware makes available to the Experimenters a
 set of security related functionalities that they might decide to include and use within their
@@ -17,7 +22,7 @@ Features **not** available for Resource _pfsense_
 5. The Experimenters can perform searches among the Resources logs in a web dashboard
 6. The Experimenters can see statistics related to the Resources logs in a web dashboard  
 
-## Security Resources
+### Security Resources
 A Security Resource is a commonly used security agent that the Experimenters can include in their
 experiment. They can access and configure it through a static initial configuration, included in the
 TOSCA description of the Experiment, or, once deployed, through the interfaces that expose its
@@ -48,7 +53,7 @@ The Security Manager provides three types of resources:
 * [pfsense][pfsense]
 
 
-## Security Resource definition
+### Security Resource definition
 In this section the attributes that can be defined for a TOSCA node of type _SecurityResource_ are listed. Please note that
 the meaning of the specific property depends on the type of resource (specified in the *resource_id* field). 
 For more details, refer to the specific sections of the documentation. 
@@ -159,6 +164,41 @@ Every node has different properties. Here they are listed for each type of resou
 ## Technical details
 This sequence diagram specifies the operations performed by the Security Manager based on the inputs received by the Experimenter.
 ![Security Manager sequence diagram][sequence]
+
+## Technical Requirements
+
+The Security Manager requires Python 3.5 or higher.
+
+## Installation and configuration
+
+
+## Issue tracker
+
+Issues and bug reports should be posted to the GitHub Issue Tracker of this project.
+
+# What is SoftFIRE?
+
+SoftFIRE provides a set of technologies for building a federated experimental platform aimed at the construction and experimentation of services and functionalities built on top of NFV and SDN technologies.
+The platform is a loose federation of already existing testbed owned and operated by distinct organizations for purposes of research and development.
+
+SoftFIRE has three main objectives: supporting interoperability, programming and security of the federated testbed.
+Supporting the programmability of the platform is then a major goal and it is the focus of the SoftFIRE’s Second Open Call.
+
+## Licensing and distribution
+Copyright © [2016-2018] SoftFIRE project
+
+Licensed under the Apache License, Version 2.0 (the "License");
+
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 
 
