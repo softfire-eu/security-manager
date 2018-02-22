@@ -1,5 +1,6 @@
 from org.openbaton.cli.agents.agents import OpenBatonAgentFactory
 from eu.softfire.sec.utils.utils import *
+import re
 
 logger = get_logger(config_path, __name__)
 
@@ -26,6 +27,8 @@ class OBClient :
         vnfp_agent = agent.get_vnf_package_agent(project_id=project_id)
         vnfp = vnfp_agent.create(path)
 
+        logger.debug("vnfd created. %s" % vnfp) 
+
         '''Create and upload the NSD'''
         # nsd_file_path = "etc/resources/nsd-fw.json"
 
@@ -33,8 +36,8 @@ class OBClient :
 
         # r = requests.get("%s/nsd-fw.json" % remote_url)
         logger.debug("requesting NSD for type: %s" % resource_type)
+        logger.debug("remote url: %s" % remote_url)
         r = requests.get("%s/nsd-%s.json" % (remote_url, resource_type))
-        logger.debug(r)
 
         nsd = json.loads(r.text)
 
@@ -47,6 +50,8 @@ class OBClient :
         nsd["vnfd"] = [{"id": vnfp["id"]}]
         virtual_links = [{"name": "softfire-internal"}]
         nsd["vld"] = virtual_links
+
+        logger.debug(nsd)
 #        for k in nsd.keys():
 #            print("%s:%s" % (k, nsd[k]))
 
@@ -86,11 +91,11 @@ class OBClient :
     def import_key(self, ssh_pub_key, name):
         agent = self.agent
         project_id = self.project_id
+        logger.debug("project id: %s" % self.project_id)
         key_agent = agent.get_key_agent(project_id)
         for key in json.loads(key_agent.find()):
             print(key)
             if key.get('name') == name:
                 key_agent.delete(key.get('id'))
                 break
-
         key_agent.create(json.dumps({"name": name, "projectId": project_id, "publicKey": ssh_pub_key}))

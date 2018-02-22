@@ -15,7 +15,7 @@ def read(fname):
 
 setup(
     name="security-manager",
-    version="0.2.0",
+    version="0.2.4",
     author="SoftFIRE",
     author_email="softfire@softfire.eu",
     description="The SoftFIRE Security Manager",
@@ -26,16 +26,22 @@ setup(
     scripts=["security-manager"],
     install_requires=[
         'bcrypt',
+        'bottle',
         'IPy',
         'keystoneauth',
         'python-neutronclient',
         'python-novaclient',
-        'openbaton-cli',
+        'python-glanceclient',
+        'openbaton-cli==5.0.1',
         'python-neutronclient',
         'PyYAML',
         'requests',
-        'softfire-sdk',
+        'softfire-sdk==1.1.4',
         'beaker',
+        'paramiko',
+        'scp',
+        'idstools',
+        'pexpect',
         ],
     long_description=read('README.md'),
     classifiers=[

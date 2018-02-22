@@ -1,6 +1,8 @@
 import shutil, sys, traceback
 import tarfile
 import yaml
+import re
+import pexpect
 from IPy import IP
 from sdk.softfire.manager import AbstractManager
 from concurrent.futures import ThreadPoolExecutor
@@ -44,7 +46,7 @@ class SecurityManager(AbstractManager):
         cur = conn.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS elastic_indexes (username, elastic_index, dashboard_id)''')
         cur.execute(
-            '''CREATE TABLE IF NOT EXISTS resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, os_project_id, os_instance_id, to_update, disable_port_security)''')
+            '''CREATE TABLE IF NOT EXISTS resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, os_project_id, os_instance_id, to_update, disable_port_security, lan_ip, floating_ip)''')
 
         conn.commit()
         conn.close()
@@ -125,6 +127,7 @@ class SecurityManager(AbstractManager):
                     raise ResourceValidationError(message=message)
 
 
+
     def provide_resources(self, user_info, payload=None):
 
         logger.info("Starting providing...")
@@ -151,6 +154,8 @@ class SecurityManager(AbstractManager):
         ob_project_id = ""
         os_project_id = ""
         os_instance_id = ""
+        lan_ip = None
+        floating_ip = None
         testbed = ""
         update = False
         disable_port_security = False
@@ -180,7 +185,7 @@ class SecurityManager(AbstractManager):
 
             '''Download scripts from remote Repository'''
             scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
-            tar_filename = "%s/%s.tar" % (tmp_files_path, properties["resource_id"])
+            tar_filename = "%s/%s-%s.tar" % (tmp_files_path, properties["resource_id"], random_id)
 
             r = requests.get(scripts_url, stream=True)
             with open(tar_filename, 'wb') as fd:
@@ -308,7 +313,7 @@ class SecurityManager(AbstractManager):
                     vnfd = json.loads(fd.read())
                 print_payload(vnfd, "VNF Descriptor")
                 # if problems occur when all VNF have same name so uncomment
-                #vnfd["name"] += ("-%s" % random_id)
+                vnfd["name"] += ("-%s" % random_id)
                 vnfd["type"] = vnfd["name"]
 
                 vnfd["vdu"][0]["vimInstanceName"] = ["vim-instance-%s" % testbed]
@@ -335,14 +340,14 @@ class SecurityManager(AbstractManager):
                     fd.write(json.dumps(vnfd))
 
                 # if problems occur when all VNF have same name so uncomment
-                #with open("%s/Metadata.yaml" % tmp_files_path, "r") as f:
+                with open("%s/Metadata.yaml" % tmp_files_path, "r") as f:
                 #    #meta_yaml = json.loads(f.read())
-                #    meta_yaml = yaml.load(f)
+                    meta_yaml = yaml.load(f)
 
-                #with open("%s/Metadata.yaml" % tmp_files_path, "w") as f:
-                #    meta_yaml["name"] += ("-%s" % random_id)
+                with open("%s/Metadata.yaml" % tmp_files_path, "w") as f:
+                    meta_yaml["name"] += ("-%s" % random_id)
                 #    #f.write(json.dumps(meta_yaml))
-                #    yaml.dump(meta_yaml, f)
+                    yaml.dump(meta_yaml, f)
 
                 '''Prepare VNFPackage'''
                 tar.add('%s' % tmp_files_path, arcname='')
@@ -373,81 +378,94 @@ class SecurityManager(AbstractManager):
                     response["NSR Details"] = "ERROR: %s" % message
 
         elif resource_id == "pfsense" :
-            #testbed = properties["testbed"]
 
-            # TODO ELIMINARE!!
-            #os_project_id = "4affafec75eb4c729af158b5ab113156"
-
-            password = user_info.password
+            response = {}
 
             openstack = OSclient(testbed, username, os_project_id)
-            try:
-                response = {}
-                ret = openstack.deploy_pfSense({"wan": properties["wan_name"], "lan": properties["lan_name"]})
+            ob_project_id = user_info.ob_project_id
+            open_baton = OBClient(ob_project_id)
 
+            try:
+                ret = openstack.deploy_pfSense({"wan": properties["wan_name"], "lan": properties["lan_name"]})
                 logger.debug(ret)
 
                 pfsense_ip = ret["ip"]
                 os_instance_id = ret["id"]
+                lan_ip = ret['lan_ip']
+                floating_ip = ret['ip']
+                logger.debug("ip: %s, len %d" % (lan_ip, len(lan_ip)))
 
-                response["ip"] = pfsense_ip
+                #Deploy bridge VM as pfsense slave
+                logger.info("Starting deploing bridge VM") 
+                scripts_url = "%s/bridge.tar" % self.get_config_value("remote-files", "url")
+                tar_filename = "%s/bridge.tar" % tmp_files_path
 
-                """Allow forwarding on pfSense"""
-                openstack.allow_forwarding(os_instance_id)
+                logger.debug("getting tar from %s to %s" % (scripts_url, tar_filename))
+                r = requests.get(scripts_url, stream=True)
+                with open(tar_filename, 'wb') as fd:
+                    for chunk in r.iter_content(chunk_size=128):
+                        fd.write(chunk)
 
-                update = True
-                disable_port_security = False
+                tar = tarfile.open(name=tar_filename, mode="r")
+                tar.extractall(path=tmp_files_path)
+                tar.close()
+                
+                with open("%s/vnfd.json" % tmp_files_path, "r") as fd:
+                    vnfd = json.loads(fd.read())
 
-                fauxapi_apikey = get_config("pfsense", "fauxapi-apikey", config_path)
-                fauxapi_apisecret = get_config("pfsense", "fauxapi-apisecret", config_path)
+                vnfd["vdu"][0]["vimInstanceName"][0] = vnfd["vdu"][0]["vimInstanceName"][0].format(testbed)
+                logger.debug("vnfd testbed: %s" % vnfd["vdu"][0]["vimInstanceName"])
 
-                #Initialize communication with ReST server pfSense (wait pfSense to be up and running)
-                logger.debug("pfsense IP: %s" % pfsense_ip)
-                api = FauxapiLib(pfsense_ip, fauxapi_apikey, fauxapi_apisecret, debug=True)
+                vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"] = properties["lan_name"]
+                vnfd["virtual_link"][0]["name"] = properties["lan_name"]
+                logger.debug("virtual_link: %s, vdu connection_point: %s" % (vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"], \
+                                                                             vnfd["virtual_link"][0]["name"]))
+                
+                logger.info("packing VNFD") 
+                with open("%s/vnfd.json" % tmp_files_path, "w") as fd:
+                    fd.write(json.dumps(vnfd))
+                tar = tarfile.open(name=tar_filename, mode='w')
+                tar.add('%s' % tmp_files_path, arcname='')
+                tar.close()
 
-                reachable = False
-                for i in range(60):
-                    try:
-                        config = api.config_get()
-                        reachable = True
-                        break
-                    except requests.exceptions.ConnectionError:
-                        logger.debug("Pfsense not Reachable. trying again")
-                        time.sleep(2)
+                logger.debug("Open Baton project_id: %s" % ob_project_id)
+                try:
+                    with ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(open_baton.deploy_package, tar_filename, {}, "bridge")
+                        return_val = future.result(60)
+ 
+                    nsr_details = json.loads(return_val)
+                    logger.debug(nsr_details)
 
-                if reachable:
-                    u = config["system"]["user"][0]
+                    # saving bridge info to db to later update phase
+                    conn = sqlite3.connect(self.resources_db)
+                    cur = conn.cursor()
+                    #TODO remove OB id after deploying bridge from OS
+                    query = "INSERT INTO resources (username, resource_id, ob_project_id, ob_nsr_id, ob_nsd_id, testbed, random_id, os_project_id, os_instance_id, to_update) \
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            
+                    logger.info("Saving project to db. user=%s, resource_id=%s" % (username, resource_id))
+                    logger.debug("Executing %s" % query)
+                    logger.debug("value = {%s, %s, %s, %s, %s, %s, %s, %s, %s, %s}" % (username, "bridge", ob_project_id, nsr_details["id"], nsr_details["descriptor_reference"], testbed, random_id, os_project_id, "NONE", True))
+            
+                    cur.execute(query, (username, "bridge", ob_project_id, nsr_details["id"], nsr_details["descriptor_reference"], testbed, random_id, os_project_id, "NONE", True))
+                    conn.commit()
+                    conn.close()
 
-                    u["name"] = username
-                    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-                    bic = hashed.decode()
-                    u["bcrypt-hash"] = bic
+                    response["staus"] = "loading"
 
-                    # TODO Add to config command that stores the FauxAPI Key
-                    credentials_file = "/etc/fauxapi/credentials.ini"
-                    local_script_path = "/etc/softfire/security-manager/inject_credentials"
-                    pfsense_script_path = "/root/inject_credentials"
-
-                    ssh = SSHClient()
-                    ssh.set_missing_host_key_policy(AutoAddPolicy())
-                    ssh.load_system_host_keys()
-                    ssh.connect(hostname=pfsense_ip, port=22, username="root", password="pfsense")
-                    scp = SCPClient(ssh.get_transport())
-                    scp.put(files=local_script_path, remote_path=pfsense_script_path)
-
-                    apisecret_value = random_string(60)
-                    config["system"]["shellcmd"] = [
-                        "sh {0} {1} {2} {3}".format(pfsense_script_path, credentials_file, username, apisecret_value)]
-
-                    time.sleep(10)
-                    api.config_set(config)
-                    api.config_reload()
-                    api.system_reboot()
-                    response["ip"] = pfsense_ip
-                    response["FauxAPI-ApiKey"] = "[PFFA%s]" % username
-                    response["FauxAPI-ApiSecret"] = apisecret_value
-                else:
-                    raise Exception("pfsense not reachable")
+                except Exception as e :
+                    #TODO
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    traceback.print_tb(exc_traceback)
+                    msg = e.message or e.args
+                    message = "Error deploying the Package on Open Baton: %s" % msg
+                    logger.error(message)
+                    nsr_id = "ERROR"
+                    update = False
+                    disable_port_security = False
+                    response["NSR Details"] = "ERROR: %s" % messag
+    
 
             except Exception as e:
                 logger.error(e)
@@ -460,12 +478,15 @@ class SecurityManager(AbstractManager):
 
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
-        query = "INSERT INTO resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, os_project_id, os_instance_id, to_update, disable_port_security) \
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        query = "INSERT INTO resources (username, resource_id, testbed, ob_project_id, ob_nsr_id, ob_nsd_id, random_id, os_project_id, os_instance_id, to_update, disable_port_security, lan_ip, floating_ip) \
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
+        logger.info("Saving project to db. user=%s, resource_id=%s" % (username, resource_id))
         logger.debug("Executing %s" % query)
+        logger.debug("lan_ip obj type: %s" % type(lan_ip))
+        logger.debug("value = {%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s}" % (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security, lan_ip))
 
-        cur.execute(query, (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security))
+        cur.execute(query, (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security, lan_ip, floating_ip))
         conn.commit()
         conn.close()
 
@@ -480,16 +501,6 @@ class SecurityManager(AbstractManager):
         #logger = get_logger(config_path)
         logger.debug("Checking status update")
         result = {}
-
-        """
-        if args[0] == "configure_pfsense" : 
-            pfsense_ip = args[1]
-            username = args[2]
-            password = args[3]
-
-            #openstack = OSclient(testbed, username, os_project_id)
-            #pfsense_ip = openstack.get_fl_ip_from_id(os_instance_id)
-        """
 
         try :
             conn = sqlite3.connect(self.resources_db)
@@ -511,11 +522,11 @@ class SecurityManager(AbstractManager):
             return result
 
         for r in rows:
-            logger.debug("Now checking nsr_id:%s" % r["ob_project_id"])
-            print(r)
+            logger.debug("Now checking %s nsr_id:%s" % (r["resource_id"], r["ob_project_id"]))
             s = {}
             '''nsr_id and ob_project_id could be empty with want_agent'''
             nsr_id = r["ob_nsr_id"]
+            resource_id = r["resource_id"]
             ob_project_id = r["ob_project_id"]
             testbed = r["testbed"]
             os_project_id = r["os_project_id"]
@@ -545,23 +556,82 @@ class SecurityManager(AbstractManager):
                     logger.error("Problem contacting the log collector: %s" % e)
                     s["dashboard_log_link"] = "ERROR"
 
-            """
-            #Probably useless
-            if nsr_id == "":
-                link = "http://%s:%s/%s/%s" % (get_config("system", "ip", config_file_path=config_path),
-                                               get_config("api", "port", config_file_path=config_path), resource_id,
-                                               random_id)
-                s["download_link"] = link
-
-            elif nsr_id == "ERROR" :w
-                s["status"] = "Error deploying the Package on Open Baton"
-            ###################
-            """
-
             if r["to_update"] == True:
 
                 '''Open Baton resource'''
                 logger.debug("Checking resource nsr_id: %s" % nsr_id)
+
+                if resource_id == "bridge":
+                    logger.debug("now updating bridge")
+
+                    open_baton = OBClient(ob_project_id)
+                    agent = open_baton.agent
+                    nsr_agent = agent.get_ns_records_agent(project_id=ob_project_id)
+                    ob_resp = nsr_agent.find(nsr_id)
+                    time.sleep(5)
+                    nsr_details = json.loads(ob_resp)
+
+                    if len(nsr_details["vnfr"]) > 0 and len(nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"]) > 0:
+                        bridge_vdu = nsr_details["vnfr"][0]["vdu"][0]
+                        floating_ip = bridge_vdu["vnfc_instance"][0]["floatingIps"][0]["ip"]
+                        logger.info("bridge floating ip: %s" % floating_ip)
+                        query = "SELECT lan_ip, floating_ip FROM resources WHERE resource_id='pfsense' AND username=?"
+                        pfsense_res = cur.execute(query, [username]).fetchone()
+                        pfsense_lan_ip = pfsense_res['lan_ip']
+                        pfsense_floating_ip = pfsense_res['floating_ip']
+                        logger.debug(pfsense_lan_ip)
+                        try:
+                            tmp_files_path = "%s/tmp/%s" % (self.local_files_path, random_id)
+                            pfsense_scripts_url = "%s/pfsense_utils.py" % re.sub("/etc/resources", "/eu/softfire/sec/utils",self.get_config_value("remote-files", "url"))
+                            script_filename = "%s/pfsenes_utils.py" % tmp_files_path
+                
+                            r = requests.get(pfsense_scripts_url, stream=True)
+                            with open(script_filename, 'wb') as fd:
+                                for chunk in r.iter_content(chunk_size=128):
+                                    fd.write(chunk)                            
+
+                            exit_status = os.system("python %s %s %s" % (script_filename, floating_ip, pfsense_lan_ip))
+                            logger.debug("exit status %d" % exit_status)
+                            if exit_status != 0:
+                                s["status"] = "Loading"
+                                if username not in result.keys():
+                                    result[username] = []
+                                result[username].append(json.dumps(s))
+                                return result
+
+                            try:
+                                open_baton = OBClient(r["ob_project_id"])
+                                open_baton.delete_ns(nsr_id=r["ob_nsr_id"], nsd_id=r["ob_nsd_id"])
+
+                                query = "DELETE FROM resources WHERE username = ? AND resource_id = ?"
+                                logger.debug("executing query")
+                                execute_query(self.resources_db, query, (username, "bridge"))
+
+                            except Exception as e:
+                                logger.error("Problem contacting Open Baton: {}".format(e))
+
+                            s["floating ip"] = [pfsense_floating_ip, {"VM credentials": {"username": "root", "password": "pfsense"}}]
+                            s["lan ip"] = pfsense_lan_ip
+                            s["dashboard credentials"] =  {"username": "admin", "password": "pfsense"}
+                            if username not in result.keys():
+                                result[username] = []
+                            result[username].append(json.dumps(s))
+                            logger.debug(result)
+                            return result
+
+                        except Exception as e:
+                           logger.error(e)
+                           s["status"] = "ERROR deploying pfense"
+                           return json.dumps(s)
+                           
+                    else:
+                        logger.info("bridge not ready")
+                        s["status"] = "Loading"
+                        if username not in result.keys():
+                            result[username] = []
+                        result[username].append(json.dumps(s))
+                        logger.debug(result)
+                        return result
 
                 try:
                     open_baton = OBClient(ob_project_id)
@@ -607,17 +677,21 @@ class SecurityManager(AbstractManager):
                 if s["status"] == "ACTIVE":
                     s["ip"] = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]["ip"]
                     if resource_id == "firewall":
-                        s["api_url"] = "http://%s:5000" % s["ip"]
+                        try:
+                            api_url = "http://%s:5000" % s["ip"]
+                            api_resp = requests.get(api_url)
+                            logger.debug(api_resp)                      
+                            s["api_url"] = api_url
+                        except Exception:
+                            s["status"] = "VM is running but API are unavailable"  
                     try:
-                        api_resp = requests.get(s["api_url"])
-                        logger.debug(api_resp)
                         """Update DB entry to stop sending update"""
                         query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
                         execute_query(self.resources_db, query, (nsr_id, username))
                     except Exception:
-                        s["status"] = "VM is running but API are unavailable"
+                        logger.error("Error updating resource row into DB. attr to_update")
 
-                if s["status"] == "ERORR":
+                if s["status"] == "ERROR":
                     try :
                         query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
                         execute_query(self.resources_db, query, (nsr_id, username))
@@ -636,7 +710,7 @@ class SecurityManager(AbstractManager):
         username = user_info.name
 
         logger.info("Requested release_resources by user %s" % username)
-        logger.debug("Arrived release_resources\nPayload: %s" % payload)
+        logger.debug("Arrived release_resources. Payload: %s" % payload)
 
         conn = sqlite3.connect(self.resources_db)
         conn.row_factory = sqlite3.Row
@@ -645,15 +719,17 @@ class SecurityManager(AbstractManager):
         query = "SELECT * FROM resources WHERE username = ?"
         res = cur.execute(query, (username,))
         rows = res.fetchall()
+        logger.debug(rows)
         for r in rows:
             if r["ob_nsr_id"] != "" and r["ob_nsr_id"] != "ERROR":
                 try:
                     open_baton = OBClient(r["ob_project_id"])
                     open_baton.delete_ns(nsr_id=r["ob_nsr_id"], nsd_id=r["ob_nsd_id"])
                 except Exception as e:
-                    logger.error("Problem contacting Open Baton: " % e)
+                    logger.error("Problem contacting Open Baton: {}".format(e))
 
-            if r["os_instance_id"] != "" :
+#            if r["os_instance_id"] != "" :
+            if r["resource_id"] == "pfsense":
                 try:
                     logger.debug("Deleting resource with id: {0}".format(r["os_instance_id"]))
                     openstack = OSclient(r["testbed"], username, r["os_project_id"])
@@ -690,32 +766,38 @@ if __name__ == "__main__":
             self.ob_project_id = ob_project_id
 
     os.environ["http_proxy"] = ""
-    user = UserInfo("experimenter", "password", "e9b85df7d3dc4f50b9dfb608df270533", "")
+# Fokus
+#    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+# Fokus-dev
+#    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+# Surrey
+#    user = UserInfo("softfire", "hRvB2u8K", "bce66fc15ad94db2b291bfe12c8b0f8f", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+# ADS
+    user = UserInfo("softfire", "hRvB2u8K", "9dfc795ab5bb4bd89ca85969fcc93bfd", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+
     pfsense_resource = """properties:
         resource_id: pfsense
-        testbed: reply
-        wan_name: my_personal
-        lan_name: test
+        testbed: ads
+        wan_name: softfire-network_new
+        lan_name: softfire-internal-new
         """
     suricata_resource = """properties:
         resource_id: suricata
         want_agent: True
-        testbed: cane
+        testbed: prova
         rules: 
             - alert icmp any any -> $HOME_NET any (msg:”ICMP test”; sid:1000001; rev:1; classtype:icmp-event;)
             - alert icmp any any -> $HOME_NET any (msg:”ICMP test”; sid:1000001; rev:1; classtype:icmp-event;)
         logging: True
     """
 
-    resource = suricata_resource
+    resource = pfsense_resource
     sec = SecurityManager(config_path)
-    sec.validate_resources(user, payload=resource)
-
-    sec.provide_resources(user, payload=resource)
-    time.sleep(300)
-    sec._update_status()
-
-    sec.release_resources(user)
-
-
-
+    #sec.validate_resources(user, payload=resource)
+    #sec.provide_resources(user, payload=resource)
+    input("hit enter to update...")
+    while True:
+        sec._update_status()
+        input("hit enter to release")
+    #    break
+    #sec.release_resources(user)
