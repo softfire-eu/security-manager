@@ -560,6 +560,26 @@ class SecurityManager(AbstractManager):
                 '''Open Baton resource'''
                 logger.debug("Checking resource nsr_id: %s" % nsr_id)
 
+                if resource_id == "pfsense":
+                        try:
+                            logger.debug("Trying to disable port security on VM")
+
+                            logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
+                            openstack = OSclient(testbed, "", os_project_id)
+
+                            for srv in openstack.list_server(os_project_id):
+                                if re.search("pfsense", srv.name) and srv.tenant_id == os_project_id:
+                                    openstack.allow_forwarding(srv.id)
+                                    disable_port_security = "False"
+                                    to_update = "False"
+                                    query = "UPDATE resources SET disable_port_security = ?, to_update = ?  WHERE username = ? AND random_id = ? AND resource_id = ?"
+                                    execute_query(self.resources_db, query, (disable_port_security, to_update, username, random_id, resource_id))
+                            return {}
+                        except Exception as e:
+                            logger.error("Error disabling port security: {0}".format(e))
+                            s["status"] = "ERROR disabling port security"
+                            return json.dumps(s)
+
                 if resource_id == "bridge":
                     logger.debug("now updating bridge")
 
@@ -631,34 +651,6 @@ class SecurityManager(AbstractManager):
                         result[username].append(json.dumps(s))
                         logger.debug(result)
                         return result
-
-                if resource_id == "pfsense":
-                        try:
-                            logger.debug("Trying to disable port security on VM")
-
-                            logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
-                            openstack = OSclient(testbed, "", os_project_id)
-
-                            for vnfr in nsr_details["vnfr"]:
-                                for vdu in vnfr["vdu"]:
-                                    for vnfc_instance in vdu["vnfc_instance"]:
-                                        server_id = vnfc_instance["vc_id"]
-                                        logger.debug("Trying to disable port security on VM with UUID: %s" % server_id)
-                                        openstack.allow_forwarding(server_id)
-                                        disable_port_security = "False"
-                                        to_update = "False"
-                            query = "UPDATE resources SET disable_port_security = ?, to_update = ?,  WHERE username = ? AND random_id = ? AND resource_id = ?"
-                            execute_query(self.resources_db, query, (disable_port_security, to_update, username, os_project_id, resource_id))
-                            s["status"] = "Loading"
-                            if username not in result.keys():
-                                result[username] = []
-                            result[username].append(json.dumps(s))
-                            logger.debug(result)
-                            return result
-                        except Exception as e:
-                            logger.error("Error disabling port security: {0}".format(e))
-                            s["status"] = "ERROR disabling port security"
-                            return json.dumps(s)
 
                 try:
                     open_baton = OBClient(ob_project_id)

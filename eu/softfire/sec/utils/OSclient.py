@@ -226,19 +226,23 @@ class OSclient :
         except Exception as e:
             logger.error(e)
 
+    def list_server(self, project_id):
+        if not self.nova:
+            self.set_nova(project_id)
+        all_servers = self.nova.servers.list(search_opts={'all_tenants': 1})
+        return [s for s in all_servers if (hasattr(s, 'project_id') and s.project_id == project_id) or (
+        hasattr(s, 'tenant_id') and s.tenant_id == project_id)]
+
     def allow_forwarding(self, server_id):
-        logger.debug("")
         try:
             interface_list = self.neutron.list_ports(device_id=server_id)["ports"]
         except Exception as e:
             print(e)
-        print(interface_list)
         global ret
         for i in interface_list:
             # ret = neutron.update_port(i["id"], {"port":{"port_security_enabled": False, "security_groups" : []}})
             ret = self.neutron.update_port(i["id"], {"port": {"allowed_address_pairs": [{"ip_address": "0.0.0.0/0", "mac_address": i["mac_address"]}]}})
             logger.debug(ret)
-            print(ret)
 
     def upload_image(self, image_name, path):
         # removed visibility property
