@@ -585,9 +585,9 @@ class SecurityManager(AbstractManager):
                             pfsense_scripts_url = "%s/pfsense_utils.py" % re.sub("/etc/resources", "/eu/softfire/sec/utils",self.get_config_value("remote-files", "url"))
                             script_filename = "%s/pfsenes_utils.py" % tmp_files_path
                 
-                            r = requests.get(pfsense_scripts_url, stream=True)
+                            r_script = requests.get(pfsense_scripts_url, stream=True)
                             with open(script_filename, 'wb') as fd:
-                                for chunk in r.iter_content(chunk_size=128):
+                                for chunk in r_script.iter_content(chunk_size=128):
                                     fd.write(chunk)                            
 
                             exit_status = os.system("python %s %s %s" % (script_filename, floating_ip, pfsense_lan_ip))
@@ -767,31 +767,42 @@ if __name__ == "__main__":
 
     os.environ["http_proxy"] = ""
 # Fokus
-#    user = UserInfo("softfire", "hRvB2u8K", "63dbce3210704f74b9b83715734062ba", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+    user = UserInfo("", "", "2927f3e448ef49f782e13af735036756", "ee06166e-d6e2-4743-8edc-c33e1e76899e")
 # Fokus-dev
 #    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # Surrey
 #    user = UserInfo("softfire", "hRvB2u8K", "bce66fc15ad94db2b291bfe12c8b0f8f", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 # ADS
-    user = UserInfo("softfire", "hRvB2u8K", "9dfc795ab5bb4bd89ca85969fcc93bfd", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+#    user = UserInfo("softfire", "hRvB2u8K", "9dfc795ab5bb4bd89ca85969fcc93bfd", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 
     pfsense_resource = """properties:
         resource_id: pfsense
-        testbed: ads
+        testbed: fokus
         wan_name: softfire-network_new
         lan_name: softfire-internal-new
         """
+    fw_resource = """properties:
+        resource_id: firewall
+        want_agent: false
+        lan_name: softfire-internal
+        testbed: fokus
+        default_rule: allow
+        denied_ips: [172.20.10.138]
+        logging: false
+        ssh_key: ""
+    """
     suricata_resource = """properties:
         resource_id: suricata
-        want_agent: True
-        testbed: prova
+        want_agent: False
+        lan_name: softfire-internal
+        testbed: fokus
+        ssh_key: ""
         rules: 
             - alert icmp any any -> $HOME_NET any (msg:”ICMP test”; sid:1000001; rev:1; classtype:icmp-event;)
-            - alert icmp any any -> $HOME_NET any (msg:”ICMP test”; sid:1000001; rev:1; classtype:icmp-event;)
-        logging: True
+        logging: False
     """
 
-    resource = pfsense_resource
+    resource = fw_resource
     sec = SecurityManager(config_path)
     #sec.validate_resources(user, payload=resource)
     #sec.provide_resources(user, payload=resource)
@@ -799,5 +810,5 @@ if __name__ == "__main__":
     while True:
         sec._update_status()
         input("hit enter to release")
-    #    break
-    #sec.release_resources(user)
+        break
+    sec.release_resources(user)
