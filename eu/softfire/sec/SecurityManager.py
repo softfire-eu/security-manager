@@ -393,6 +393,8 @@ class SecurityManager(AbstractManager):
                 os_instance_id = ret["id"]
                 lan_ip = ret['lan_ip']
                 floating_ip = ret['ip']
+                disable_port_security = True
+                update = True
                 logger.debug("ip: %s, len %d" % (lan_ip, len(lan_ip)))
 
                 #Deploy bridge VM as pfsense slave
@@ -471,10 +473,6 @@ class SecurityManager(AbstractManager):
                 logger.error(e)
                 response["ip"] = "Error deploying pfSense"
                 return [json.dumps(response)]
-
-
-        # TODO ELIMINARE!!
-        #os_project_id = "4affafec75eb4c729af158b5ab113156"
 
         conn = sqlite3.connect(self.resources_db)
         cur = conn.cursor()
@@ -633,6 +631,34 @@ class SecurityManager(AbstractManager):
                         result[username].append(json.dumps(s))
                         logger.debug(result)
                         return result
+
+                if resource_id == "pfsense":
+                        try:
+                            logger.debug("Trying to disable port security on VM")
+
+                            logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
+                            openstack = OSclient(testbed, "", os_project_id)
+
+                            for vnfr in nsr_details["vnfr"]:
+                                for vdu in vnfr["vdu"]:
+                                    for vnfc_instance in vdu["vnfc_instance"]:
+                                        server_id = vnfc_instance["vc_id"]
+                                        logger.debug("Trying to disable port security on VM with UUID: %s" % server_id)
+                                        openstack.allow_forwarding(server_id)
+                                        disable_port_security = "False"
+                                        to_update = "False"
+                            query = "UPDATE resources SET disable_port_security = ?, to_update = ?,  WHERE username = ? AND random_id = ? AND resource_id = ?"
+                            execute_query(self.resources_db, query, (disable_port_security, to_update, username, os_project_id, resource_id))
+                            s["status"] = "Loading"
+                            if username not in result.keys():
+                                result[username] = []
+                            result[username].append(json.dumps(s))
+                            logger.debug(result)
+                            return result
+                        except Exception as e:
+                            logger.error("Error disabling port security: {0}".format(e))
+                            s["status"] = "ERROR disabling port security"
+                            return json.dumps(s)
 
                 try:
                     open_baton = OBClient(ob_project_id)
