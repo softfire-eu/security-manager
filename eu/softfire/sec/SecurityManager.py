@@ -524,7 +524,7 @@ class SecurityManager(AbstractManager):
             s = {}
             '''nsr_id and ob_project_id could be empty with want_agent'''
             nsr_id = r["ob_nsr_id"]
-            s['nsr_id'] = nsr_id
+            #s['nsr_id'] = nsr_id
             resource_id = r["resource_id"]
             ob_project_id = r["ob_project_id"]
             testbed = r["testbed"]
