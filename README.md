@@ -170,7 +170,16 @@ This sequence diagram specifies the operations performed by the Security Manager
 The Security Manager requires Python 3.5 or higher.
 
 ## Installation and configuration
+You can install the Security Manager using pip:
 
+```bash
+$ pip install security-manager
+```
+and then start it with the security-manager command.
+
+Or you can run it from source code by cloning the git repository, installing the dependencies as specified in the setup.py file and executing the security-manager script.
+
+The Security Manager needs a configuration file present at /etc/softfire/security-manager.ini. An example of the configuration file can be found [here](https://github.com/softfire-eu/security-manager/blob/master/etc/template/security-manager.ini).
 
 ## Issue tracker
 
