@@ -514,6 +514,7 @@ class SecurityManager(AbstractManager):
                 query = "SELECT * FROM resources" # WHERE r.to_update='True'"
                 res = cur.execute(query)
                 rows = res.fetchall()
+            logger.debug("resource to check: %d" % len(rows))
         except Exception as e :
             logger.error("Problem reading the Resources DB: %s" % e)
             conn.close()
