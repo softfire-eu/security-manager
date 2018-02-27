@@ -545,8 +545,104 @@ class SecurityManager(AbstractManager):
             return link
         return None
 
-    def _update_pfsense():
-        pass
+    def _update_pfsense(self, testbed, os_project_id, username, random_id, resource_id):
+        result = {}
+        try:
+            logger.info("Disabling port security on VM") 
+            logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
+            openstack = OSclient(testbed, "", os_project_id)
+        
+            for srv in openstack.list_server(os_project_id):
+                if re.search("pfsense", srv.name) and srv.tenant_id == os_project_id:
+                    openstack.allow_forwarding(srv.id)
+                    disable_port_security = "False"
+                    to_update = "False"
+                    query = "UPDATE resources SET disable_port_security = ?, to_update = ?  WHERE username = ? AND random_id = ? AND resource_id = ?"
+                    execute_query(self.resources_db, query, (disable_port_security, to_update, username, random_id, resource_id))
+        except Exception as e:
+            logger.error("Error disabling port security: {0}".format(e))
+            result["status"] = "ERROR disabling port security"
+        
+        return result
+
+    def _update_bridge(self, ob_project_id, nsr_id, username, random_id, ob_nsd_id):
+        result = {}
+
+        open_baton = OBClient(ob_project_id)
+        agent = open_baton.agent
+        nsr_agent = agent.get_ns_records_agent(project_id=ob_project_id)
+        ob_resp = nsr_agent.find(nsr_id)
+        time.sleep(5)
+        nsr_details = json.loads(ob_resp)
+        
+        if len(nsr_details["vnfr"]) > 0 and len(nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"]) > 0:
+            bridge_vdu = nsr_details["vnfr"][0]["vdu"][0]
+            floating_ip = bridge_vdu["vnfc_instance"][0]["floatingIps"][0]["ip"]
+            logger.info("bridge floating ip: %s" % floating_ip)
+            conn = sqlite3.connect(self.resources_db)
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            query = "SELECT lan_ip, floating_ip FROM resources WHERE resource_id='pfsense' AND username=?"
+            pfsense_res = cur.execute(query, [username]).fetchone()
+            conn.close()
+            pfsense_lan_ip = pfsense_res['lan_ip']
+            pfsense_floating_ip = pfsense_res['floating_ip']
+            logger.debug(pfsense_lan_ip)
+            try:
+                tmp_files_path = "%s/tmp/%s" % (self.local_files_path, random_id)
+                pfsense_scripts_url = "%s/pfsense_utils.py" % re.sub("/etc/resources", "/eu/softfire/sec/utils",self.get_config_value("remote-files", "url"))
+                script_filename = "%s/pfsenes_utils.py" % tmp_files_path
+        
+                r_script = requests.get(pfsense_scripts_url, stream=True)
+                with open(script_filename, 'wb') as fd:
+                    for chunk in r_script.iter_content(chunk_size=128):
+                        fd.write(chunk)                            
+        
+                exit_status = os.system("python %s %s %s" % (script_filename, floating_ip, pfsense_lan_ip))
+                logger.debug("exit status %d" % exit_status)
+                if exit_status != 0:
+                    result["status"] = "Loading"
+                    #if username not in result.keys():
+                    #    result[username] = []
+                    #result[username].append(json.dumps(s))
+                    #return result
+                else:
+                    try:
+                        open_baton = OBClient(ob_project_id)
+                        open_baton.delete_ns(nsr_id=nsr_id, nsd_id=ob_nsd_id)
+            
+                        query = "DELETE FROM resources WHERE username = ? AND resource_id = ?"
+                        logger.debug("executing query")
+                        execute_query(self.resources_db, query, (username, "bridge"))
+
+                        result["floating ip"] = [pfsense_floating_ip, {"VM credentials": {"username": "root", "password": "pfsense"}}]
+                        result["lan ip"] = pfsense_lan_ip
+                        result["dashboard credentials"] =  {"username": "admin", "password": "pfsense"}
+                    except Exception as e:
+                        logger.error("Problem contacting Open Baton: {}".format(e))
+                        result["status"] = "ERROR: OB error"
+            
+
+                    #if username not in result.keys():
+                    #    result[username] = []
+                    #result[username].append(json.dumps(s))
+                #logger.debug(result)
+                #return result
+        
+            except Exception as e:
+               logger.error(e)
+               result["status"] = "ERROR deploying pfense: network error"
+#               return json.dumps(s)
+               
+        else:
+            logger.info("bridge not ready")
+            result["status"] = "Loading"
+            #if username not in result.keys():
+            #    result[username] = []
+            #result[username].append(json.dumps(s))
+
+        logger.debug(result)
+        return result
 
     def _update_status(self) -> dict:
         logger.debug("Checking status update")
@@ -564,7 +660,9 @@ class SecurityManager(AbstractManager):
         except Exception as e :
             logger.error("Problem reading the Resources DB: %s" % e)
             conn.close()
-            return result["ERROR": "Security Manager engine error"]
+            # FIXME this return
+            result["ERROR"] = "Security Manager engine error"
+            return result
 
         for r in rows:
             logger.debug("Now checking %s ob_id:%s" % (r["resource_id"], r["ob_project_id"]))
@@ -588,173 +686,90 @@ class SecurityManager(AbstractManager):
                 logger.debug("Getting status nsr_id: %s" % nsr_id)
 
                 if resource_id == "pfsense":
-#                    self._update_pfsense()
-                        try:
-                            logger.debug("Trying to disable port security on VM")
+                    s = self._update_pfsense(testbed, os_project_id, username, random_id, resource_id)
 
-                            logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
-                            openstack = OSclient(testbed, "", os_project_id)
-
-                            for srv in openstack.list_server(os_project_id):
-                                if re.search("pfsense", srv.name) and srv.tenant_id == os_project_id:
-                                    openstack.allow_forwarding(srv.id)
-                                    disable_port_security = "False"
-                                    to_update = "False"
-                                    query = "UPDATE resources SET disable_port_security = ?, to_update = ?  WHERE username = ? AND random_id = ? AND resource_id = ?"
-                                    execute_query(self.resources_db, query, (disable_port_security, to_update, username, random_id, resource_id))
-                            return {}
-                        except Exception as e:
-                            logger.error("Error disabling port security: {0}".format(e))
-                            s["status"] = "ERROR disabling port security"
-                            return json.dumps(s)
 
                 if resource_id == "bridge":
-                    logger.debug("now updating bridge")
+                    s = self._update_bridge(ob_project_id, nsr_id, username, random_id, r["ob_nsd_id"])
 
-                    open_baton = OBClient(ob_project_id)
-                    agent = open_baton.agent
-                    nsr_agent = agent.get_ns_records_agent(project_id=ob_project_id)
-                    ob_resp = nsr_agent.find(nsr_id)
-                    time.sleep(5)
-                    nsr_details = json.loads(ob_resp)
-
-                    if len(nsr_details["vnfr"]) > 0 and len(nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"]) > 0:
-                        bridge_vdu = nsr_details["vnfr"][0]["vdu"][0]
-                        floating_ip = bridge_vdu["vnfc_instance"][0]["floatingIps"][0]["ip"]
-                        logger.info("bridge floating ip: %s" % floating_ip)
-                        query = "SELECT lan_ip, floating_ip FROM resources WHERE resource_id='pfsense' AND username=?"
-                        pfsense_res = cur.execute(query, [username]).fetchone()
-                        pfsense_lan_ip = pfsense_res['lan_ip']
-                        pfsense_floating_ip = pfsense_res['floating_ip']
-                        logger.debug(pfsense_lan_ip)
-                        try:
-                            tmp_files_path = "%s/tmp/%s" % (self.local_files_path, random_id)
-                            pfsense_scripts_url = "%s/pfsense_utils.py" % re.sub("/etc/resources", "/eu/softfire/sec/utils",self.get_config_value("remote-files", "url"))
-                            script_filename = "%s/pfsenes_utils.py" % tmp_files_path
-                
-                            r_script = requests.get(pfsense_scripts_url, stream=True)
-                            with open(script_filename, 'wb') as fd:
-                                for chunk in r_script.iter_content(chunk_size=128):
-                                    fd.write(chunk)                            
-
-                            exit_status = os.system("python %s %s %s" % (script_filename, floating_ip, pfsense_lan_ip))
-                            logger.debug("exit status %d" % exit_status)
-                            if exit_status != 0:
-                                s["status"] = "Loading"
-                                if username not in result.keys():
-                                    result[username] = []
-                                result[username].append(json.dumps(s))
-                                return result
-
-                            try:
-                                open_baton = OBClient(r["ob_project_id"])
-                                open_baton.delete_ns(nsr_id=r["ob_nsr_id"], nsd_id=r["ob_nsd_id"])
-
-                                query = "DELETE FROM resources WHERE username = ? AND resource_id = ?"
-                                logger.debug("executing query")
-                                execute_query(self.resources_db, query, (username, "bridge"))
-
-                            except Exception as e:
-                                logger.error("Problem contacting Open Baton: {}".format(e))
-
-                            s["floating ip"] = [pfsense_floating_ip, {"VM credentials": {"username": "root", "password": "pfsense"}}]
-                            s["lan ip"] = pfsense_lan_ip
-                            s["dashboard credentials"] =  {"username": "admin", "password": "pfsense"}
-                            if username not in result.keys():
-                                result[username] = []
-                            result[username].append(json.dumps(s))
-                            logger.debug(result)
-                            return result
-
-                        except Exception as e:
-                           logger.error(e)
-                           s["status"] = "ERROR deploying pfense"
-                           return json.dumps(s)
-                           
-                    else:
-                        logger.info("bridge not ready")
-                        s["status"] = "Loading"
-                        if username not in result.keys():
-                            result[username] = []
-                        result[username].append(json.dumps(s))
-                        logger.debug(result)
-                        return result
-
-                try:
-                    open_baton = OBClient(ob_project_id)
-                    agent = open_baton.agent
-                    nsr_agent = agent.get_ns_records_agent(project_id=ob_project_id)
-                    ob_resp = nsr_agent.find(nsr_id)
-                    time.sleep(5)
-                    nsr_details = json.loads(ob_resp)
-                    #logger.debug(nsr_details)
-
-                    s["status"] = nsr_details["status"]
-
-
-                    """Disable port security on VM's ports"""
-                    if disable_port_security == True:
-                        try:
-                            logger.debug("Trying to disable port security on VM")
-
-                            logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
-                            openstack = OSclient(testbed, "", os_project_id)
-                            print(testbed)
-                            print(os_project_id)
-
-                            for vnfr in nsr_details["vnfr"]:
-                                for vdu in vnfr["vdu"]:
-                                    for vnfc_instance in vdu["vnfc_instance"]:
-                                        server_id = vnfc_instance["vc_id"]
-
-                                        #server_id = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
-                                        logger.debug("Trying to disable port security on VM with UUID: %s" % server_id)
-                                        openstack.allow_forwarding(server_id)
-                                        disable_port_security = "False"
-                            query = "UPDATE resources SET disable_port_security = ? WHERE username = ? AND ob_nsr_id = ?"
-                            execute_query(self.resources_db, query, (disable_port_security, username, nsr_id))
-                        except Exception as e:
-                            logger.error("Error disabling port security: {0}".format(e))
-
-                except Exception as e:
-                    logger.error("Error contacting Open Baton to check resource status, nsr_id: %s\n%s" % (nsr_id, e))
-                    s["status"] = "ERROR checking status"
-
-                print(s)
-                if s["status"] == "ACTIVE":
-                    s["ip"] = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]["ip"]
-                    if resource_id == "firewall":
-                        try:
-                            api_url = "http://%s:5000" % s["ip"]
-                            api_resp = requests.get(api_url)
-                            logger.debug(api_resp)                      
-                            s["api_url"] = api_url
-                        except Exception:
-                            s["status"] = "VM is running but API are unavailable"
-
-                    s["dashboard_log_link"] = self.configure_ELK(username, random_id)
-
+                if resource_id == "suricata" or resource_id == "firewall":
                     try:
-                        """Update DB entry to stop sending update"""
-                        query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
-                        execute_query(self.resources_db, query, (nsr_id, username))
-                    except Exception:
-                        logger.error("Error updating resource row into DB. attr to_update")
-                    
-
-
-                if s["status"] == "ERROR":
-                    try :
-                        query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
-                        execute_query(self.resources_db, query, (nsr_id, username))
+                        open_baton = OBClient(ob_project_id)
+                        agent = open_baton.agent
+                        nsr_agent = agent.get_ns_records_agent(project_id=ob_project_id)
+                        ob_resp = nsr_agent.find(nsr_id)
+                        time.sleep(5)
+                        nsr_details = json.loads(ob_resp)
+                        #logger.debug(nsr_details)
+    
+                        s["status"] = nsr_details["status"]
+    
+    
+                        """Disable port security on VM's ports"""
+                        if disable_port_security == True:
+                            try:
+                                logger.debug("Trying to disable port security on VM")
+    
+                                logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
+                                openstack = OSclient(testbed, "", os_project_id)
+                                print(testbed)
+                                print(os_project_id)
+    
+                                for vnfr in nsr_details["vnfr"]:
+                                    for vdu in vnfr["vdu"]:
+                                        for vnfc_instance in vdu["vnfc_instance"]:
+                                            server_id = vnfc_instance["vc_id"]
+    
+                                            #server_id = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["vc_id"]
+                                            logger.debug("Trying to disable port security on VM with UUID: %s" % server_id)
+                                            openstack.allow_forwarding(server_id)
+                                            disable_port_security = "False"
+                                query = "UPDATE resources SET disable_port_security = ? WHERE username = ? AND ob_nsr_id = ?"
+                                execute_query(self.resources_db, query, (disable_port_security, username, nsr_id))
+                            except Exception as e:
+                                logger.error("Error disabling port security: {0}".format(e))
+    
                     except Exception as e:
-                        logger.error(e)
+                        logger.error("Error contacting Open Baton to check resource status, nsr_id: %s\n%s" % (nsr_id, e))
+                        s["status"] = "ERROR checking status"
+    
+                    print(s)
+                    if s["status"] == "ACTIVE":
+                        s["ip"] = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]["ip"]
+                        if resource_id == "firewall":
+                            try:
+                                api_url = "http://%s:5000" % s["ip"]
+                                api_resp = requests.get(api_url)
+                                logger.debug(api_resp)                      
+                                s["api_url"] = api_url
+                            except Exception:
+                                s["status"] = "VM is running but API are unavailable"
+    
+                        s["dashboard_log_link"] = self.configure_ELK(username, random_id)
+    
+                        try:
+                            """Update DB entry to stop sending update"""
+                            query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
+                            execute_query(self.resources_db, query, (nsr_id, username))
+                        except Exception:
+                            logger.error("Error updating resource row into DB. attr to_update")
+                        
+    
+    
+                    if s["status"] == "ERROR":
+                        try :
+                            query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
+                            execute_query(self.resources_db, query, (nsr_id, username))
+                        except Exception as e:
+                            logger.error(e)
 
-                if username not in result.keys():
-                    result[username] = []
-                result[username].append(json.dumps(s))
+
             else :
                 s = {}
+
+            if username not in result.keys():
+                result[username] = []
+            result[username].append(json.dumps(s))
         logger.debug("Result: %s" % result)
         return result
 
