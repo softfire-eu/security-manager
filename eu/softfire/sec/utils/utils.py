@@ -11,29 +11,6 @@ from sdk.softfire.utils import *
 
 config_path = '/etc/softfire/security-manager.ini'
 
-class UpdateStatusThread(Thread):
-    def __init__(self, manager):
-        Thread.__init__(self)
-        self.stopped = False
-        self.manager = manager
-        self.logger = get_logger(config_path, __name__)
-
-    def run(self):
-        while not self.stopped:
-            time.sleep(int(self.manager.get_config_value('system', 'update-delay', '10')))
-            if not self.stopped:
-                try:
-                    self.manager.send_update()
-                except Exception as e:
-
-                    print("got error while updating resources: %s " % e)
-                    self.logger.error("got error while updating resources: %s " % e)
-                    self.manager.send_update()
-
-    def stop(self):
-        self.stopped = True
-
-
 def get_logger(config_path, name):
     logging.config.fileConfig(config_path)
     l = logging.getLogger(name)

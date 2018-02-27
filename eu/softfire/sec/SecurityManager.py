@@ -36,6 +36,28 @@ resources = {
                 "\nMore information at http://docs.softfire.eu/security-manager/"
 }
 
+class UpdateStatusThread(Thread):
+    def __init__(self, sec_manager):
+        Thread.__init__(self)
+        self.stopped = False
+        self.sec_manager = sec_manager
+
+    def run(self):
+        while not self.stopped:
+            time.sleep(int(self.sec_manager.get_config_value('system', 'update-delay', '10')))
+            if not self.stopped:
+                try:
+                    self.sec_manager.send_update()
+                except Exception as e:
+                    traceback.print_exc()
+                    if hasattr(e, 'args'):
+                        logger.error("got error while updating resources: %s " % e)
+                    else:
+                        logger.error("got unknown error while updating resources")
+
+    def stop(self):
+        self.stopped = True
+
 class SecurityManager(AbstractManager):
     def __init__(self, config_path):
         super(SecurityManager, self).__init__(config_path)
@@ -495,37 +517,61 @@ class SecurityManager(AbstractManager):
         return [json.dumps(response)]
         #return [json.dumps({"status": "NULL"})]
 
+    def configure_ELK(self, username, random_id):
+        '''Repush index-pattern'''
+        logger.debug("Checking if resource has requested elastic index")
+        conn_elastic = sqlite3.connect(self.resources_db)
+        conn_elastic.row_factory = sqlite3.Row
+        cur = conn_elastic.cursor()
+        query = "SELECT e.elastic_index FROM resources AS r JOIN elastic_indexes AS e ON r.username = e.username WHERE e.username=?" # WHERE r.to_update='True'"
+        res = cur.execute(query, (username, ))
+        elastic_index = res.fetchone()
+        conn_elastic.close()
+    
+        if elastic_index:
+            index = elastic_index["elastic_index"]
+            logger.info("Creating Elasticsearch index")
+            link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path),
+                                                  get_config("api", "port", config_file_path=config_path),
+                                                  random_id)
+            logger.debug("Eleastic dashboard link: %s" % link)
+            try:
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(push_kibana_index, index)
+                    future.result(5)
+            except Exception as e:
+                logger.error("Problem contacting the log collector: %s" % e)
+                link = "ERROR: %e" % e
+            return link
+        return None
+
+    def _update_pfsense():
+        pass
+
     def _update_status(self) -> dict:
-        #logger = get_logger(config_path)
         logger.debug("Checking status update")
+        #FIXME change result in response
         result = {}
 
         try :
             conn = sqlite3.connect(self.resources_db)
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
-            query = "SELECT * FROM resources AS r JOIN elastic_indexes AS e ON r.username = e.username" # WHERE r.to_update='True'"
+            query = "SELECT * FROM resources WHERE to_update=1"
             res = cur.execute(query)
             rows = res.fetchall()
-            #work around
-            if not rows:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                query = "SELECT * FROM resources" # WHERE r.to_update='True'"
-                res = cur.execute(query)
-                rows = res.fetchall()
             logger.debug("resource to check: %d" % len(rows))
         except Exception as e :
             logger.error("Problem reading the Resources DB: %s" % e)
             conn.close()
-            return result
+            return result["ERROR": "Security Manager engine error"]
 
         for r in rows:
-            logger.debug("Now checking %s nsr_id:%s" % (r["resource_id"], r["ob_project_id"]))
+            logger.debug("Now checking %s ob_id:%s" % (r["resource_id"], r["ob_project_id"]))
+            #FIXME change s in resource_response
             s = {}
             '''nsr_id and ob_project_id could be empty with want_agent'''
             nsr_id = r["ob_nsr_id"]
-            #s['nsr_id'] = nsr_id
             resource_id = r["resource_id"]
             ob_project_id = r["ob_project_id"]
             testbed = r["testbed"]
@@ -533,35 +579,16 @@ class SecurityManager(AbstractManager):
             os_instance_id = r["os_instance_id"]
             disable_port_security = r["disable_port_security"]
             username = r["username"]
-            elastic_index = None
-            if "elastic_index" in r.keys():
-                elastic_index = r["elastic_index"]
             random_id = r["random_id"]
             resource_id = r["resource_id"]
-
-
-            '''Repush index-pattern'''
-            if elastic_index and elastic_index != "":
-                logger.debug("update elastic status")
-                link = "http://%s:%s/dashboard/%s" % (get_config("system", "ip", config_file_path=config_path),
-                                                      get_config("api", "port", config_file_path=config_path),
-                                                      random_id)
-                logger.debug("Eleastic dashboard link: %s" % link)
-                s["dashboard_log_link"] = link
-                try:
-                    with ThreadPoolExecutor(max_workers=1) as executor:
-                        future = executor.submit(push_kibana_index, elastic_index)
-                        future.result(5)
-                except Exception as e:
-                    logger.error("Problem contacting the log collector: %s" % e)
-                    s["dashboard_log_link"] = "ERROR"
 
             if r["to_update"] == True:
 
                 '''Open Baton resource'''
-                logger.debug("Checking resource nsr_id: %s" % nsr_id)
+                logger.debug("Getting status nsr_id: %s" % nsr_id)
 
                 if resource_id == "pfsense":
+#                    self._update_pfsense()
                         try:
                             logger.debug("Trying to disable port security on VM")
 
@@ -704,12 +731,17 @@ class SecurityManager(AbstractManager):
                             s["api_url"] = api_url
                         except Exception:
                             s["status"] = "VM is running but API are unavailable"
+
+                    s["dashboard_log_link"] = self.configure_ELK(username, random_id)
+
                     try:
                         """Update DB entry to stop sending update"""
                         query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
                         execute_query(self.resources_db, query, (nsr_id, username))
                     except Exception:
                         logger.error("Error updating resource row into DB. attr to_update")
+                    
+
 
                 if s["status"] == "ERROR":
                     try :
