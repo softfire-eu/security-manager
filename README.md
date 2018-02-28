@@ -289,6 +289,20 @@ $ qemu-img convert pfsense.vdi -O qcow2 pfsense.qcow2
 
 Now you can upload the pfsense image on your Openstack using the label and the flavor name provided inside the 'security-manage.ini'.
 
+## Install and configure ELK stack
+
+ELK stack provide logging functionalities to suricata and firewall resources. An user can visualize these logs through a web dashboard.
+It is required to install Elastichsearch, Logstash and Kibana on a separate server or directly inside the same server in which the security manager is running.
+
+First of all, you have to proerly set port values through which ELK will listen. Inside the directory 'logging ELK/' there are three files:
+    1. default-conf.conf: it containts logstash configuration parameters;
+    2. elasticsearch.yml: it containts elastichsearch configuration parameters;
+    3. kibana.yml: it containts kibana configuration parameters.
+
+Subsequently you have to also use these ports and the ELK server ip address inside the security-manage.ini file otherwise the Security Manager will be unable to contact the logging server.
+
+To start the installation and execute all the component, simply launch the 'logging ELK/setuo.sh' script.
+
 ## Issue tracker
 
 Issues and bug reports should be posted to the GitHub Issue Tracker of this project.
