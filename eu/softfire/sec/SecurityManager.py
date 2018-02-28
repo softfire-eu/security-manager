@@ -742,10 +742,11 @@ class SecurityManager(AbstractManager):
             else :
                 resource_response = {}
 
-            if username not in result.keys():
-                response[username] = []
-            logger.debug("Result: %s" % resource_response)
-            response[username].append(json.dumps(resource_response))
+            if len(resource_response):
+                if username not in response.keys():
+                    response[username] = []
+                logger.debug("Result: %s" % resource_response)
+                response[username].append(json.dumps(resource_response))
         return response
 
     def release_resources(self, user_info=None, payload=None):

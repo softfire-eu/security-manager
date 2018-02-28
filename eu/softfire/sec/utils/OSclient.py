@@ -83,6 +83,7 @@ class OSclient :
         return {n['name']: n for n in networks_list}
 
     def deploy_pfSense(self, selected_networks: dict):
+        ext_net = None
         logger.info("Deploing pfsense")
         image_name = utils.get_config("pfsense", "image_name", utils.config_path)
         flavor = utils.get_config("pfsense", "flavor_name", utils.config_path)
@@ -91,6 +92,7 @@ class OSclient :
 
         logger.info("Listing networks")
         networks = self.list_networks()
+
 
         logger.info("checking networks")
         for k in selected_networks.keys():
@@ -211,11 +213,31 @@ class OSclient :
             new_server.add_floating_ip(floating_ip_to_add, lan_ip_dict[selected_networks['wan']][0])
             logger.debug("floating ip {0} added".format(floating_ip_to_add))
         else:
-            OpenStackDeploymentError(message="Unable to associate Floating IP")
-
-        
+            try:
+                ip = self.allocate_floating_ips(ext_net, 1)[0]
+                new_server.add_floating_ip(ip, lan_ip_dict[selected_networks['wan']][0])
+                OpenStackDeploymentError(message="Unable to associate Floating IP")
+            except Exception as e:
+                logger.error("Unable to associate floating ip to pfsense")
 
         return {"id" : id, "ip" : floating_ip_to_add, "lan_ip": lan_ip_dict[selected_networks['lan']][0]}
+
+    def allocate_floating_ips(self, ext_net, fip_num=0):
+        body = {
+            "floatingip": {
+                "floating_network_id": ext_net['id']
+            }
+        }
+        ip_list = []
+
+        for i in range(fip_num):
+            try:
+                ip_list.append(self.neutron.create_floatingip(body=body))
+            except IpAddressGenerationFailureClient as e:
+                logger.error("Not able to allocate floatingips :(")
+                raise OpenstackClientError("Not able to allocate floatingips :(")
+
+        return ip_list
 
     def delete_server(self, server_id):
         logger.debug("Deleting server {0}".format(server_id))
