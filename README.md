@@ -303,6 +303,11 @@ Subsequently you have to also use these ports and the ELK server ip address insi
 
 To start the installation and execute all the component, simply launch the 'logging ELK/setuo.sh' script.
 
+Finally you have to load through the kibana dashbaord (see configuration file to know the port to use) the templates located inside 'logging ELK/kibana_template' directory:
+    - dashboard.json contains all views that compose the html page;
+    - others files containt views definition.
+Once you have created the dashboard, you have to specifiy the template id assigned by kibana inside the 'security-manager.ini' file.
+
 ## Issue tracker
 
 Issues and bug reports should be posted to the GitHub Issue Tracker of this project.
