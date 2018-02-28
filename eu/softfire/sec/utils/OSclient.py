@@ -213,6 +213,9 @@ class OSclient :
             new_server.add_floating_ip(floating_ip_to_add, lan_ip_dict[selected_networks['wan']][0])
             logger.debug("floating ip {0} added".format(floating_ip_to_add))
         else:
+            #TODO add_floating_ip is deprecated. instead, use update_floatingip
+            # see: https://github.com/openstack/python-neutronclient/blob/master/neutronclient/v2_0/client.py
+            # and: https://developer.openstack.org/api-ref/network/v2/
             try:
                 ip = self.allocate_floating_ips(ext_net, 1)[0]
                 new_server.add_floating_ip(ip, lan_ip_dict[selected_networks['wan']][0])
