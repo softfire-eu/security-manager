@@ -45,7 +45,10 @@ def download_scripts(id, resource):
         download = True
 
     tmp_file_path = "%s/tmp" % file_path
-    filename = "%s/%s-%s%s" % (id, resource, id, ext)
+    if resource == "dashboard":
+        filename = "%s/%s%s" % (id, resource, ext)
+    else:
+        filename = "%s/%s-%s%s" % (id, resource, id, ext)
 
     logger.debug("%s-%s" % (tmp_file_path, filename))
 
