@@ -664,11 +664,12 @@ class SecurityManager(AbstractManager):
             result["ip"] = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]["ip"]
             if resource_id == "firewall":
                 try:
-                    api_url = "http://%s:5000" % s["ip"]
+                    api_url = "http://%s:5000" % result["ip"]
                     api_resp = requests.get(api_url)
                     logger.debug(api_resp)                      
                     result["api_url"] = api_url
-                except Exception:
+                except Exception as e:
+                    logger.error(e)
                     result["status"] = "VM is running but API are unavailable"
         
             result["dashboard_log_link"] = self.configure_ELK(username, random_id)
