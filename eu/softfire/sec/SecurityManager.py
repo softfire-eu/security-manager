@@ -23,18 +23,19 @@ ip_lists = ["allowed_ips", "denied_ips"]
 OPENBATONRESOURCES = ["firewall", "suricata"]
 
 resources = {
-    "firewall" : "This resource permits to deploy a firewall. You can deploy it as a standalone VM, " \
-                 "or you can use it as an agent directly installed on the machine that you want to protect. " \
-                 "This resource offers the functionalities of UFW (https://help.ubuntu.com/community/UFW) and can be easily " \
-                 "configured by means of a Rest API.\nMore information at http://docs.softfire.eu/security-manager/",
-	"suricata" : "This resource permits to deploy a Suricata NIPS. You can deploy it as a standalone VM, " \
-                 "or you can use it as an agent directly installed on the machine that you want to protect. " \
-                 "This resource offers the functionalities of Suricata NIPS (https://suricata-ids.org/).\nMore information at http://docs.softfire.eu/security-manager/",
-	"pfsense" : "This resource permits to deploy a pfSense VM."\
-                "This resource offers the functionalities of pfSense (https://www.pfsense.org/), and " \
-                "can be configured by means of a Rest API provided by FauxAPI package (https://github.com/ndejong/pfsense_fauxapi)." \
-                "\nMore information at http://docs.softfire.eu/security-manager/"
+    "firewall": "This resource permits to deploy a firewall. You can deploy it as a standalone VM, " \
+                "or you can use it as an agent directly installed on the machine that you want to protect. " \
+                "This resource offers the functionalities of UFW (https://help.ubuntu.com/community/UFW) and can be easily " \
+                "configured by means of a Rest API.\nMore information at http://docs.softfire.eu/security-manager/",
+    "suricata": "This resource permits to deploy a Suricata NIPS. You can deploy it as a standalone VM, " \
+                "or you can use it as an agent directly installed on the machine that you want to protect. " \
+                "This resource offers the functionalities of Suricata NIPS (https://suricata-ids.org/).\nMore information at http://docs.softfire.eu/security-manager/",
+    "pfsense": "This resource permits to deploy a pfSense VM." \
+               "This resource offers the functionalities of pfSense (https://www.pfsense.org/), and " \
+               "can be configured by means of a Rest API provided by FauxAPI package (https://github.com/ndejong/pfsense_fauxapi)." \
+               "\nMore information at http://docs.softfire.eu/security-manager/"
 }
+
 
 class UpdateStatusThread(Thread):
     def __init__(self, sec_manager):
@@ -57,6 +58,7 @@ class UpdateStatusThread(Thread):
 
     def stop(self):
         self.stopped = True
+
 
 class SecurityManager(AbstractManager):
     def __init__(self, config_path):
@@ -86,7 +88,7 @@ class SecurityManager(AbstractManager):
         testbed = messages_pb2.ANY
         node_type = "SecurityResource"
         result = []
-        for k, v in resources.items() :
+        for k, v in resources.items():
             result.append(messages_pb2.ResourceMetadata(resource_id=k, description=v, cardinality=cardinality,
                                                         node_type=node_type, testbed=testbed))
 
@@ -105,8 +107,9 @@ class SecurityManager(AbstractManager):
 
         valid_testbed = "testbed" in properties and properties["testbed"] in testbeds
 
-        want_agent =  properties["resource_id"] in OPENBATONRESOURCES and "want_agent" in properties and properties["want_agent"]
-        if not(valid_testbed or want_agent):
+        want_agent = properties["resource_id"] in OPENBATONRESOURCES and "want_agent" in properties and properties[
+            "want_agent"]
+        if not (valid_testbed or want_agent):
             message = "testbed does not contain a valid value"
             logger.info(message)
             raise ResourceValidationError(message=message)
@@ -133,19 +136,15 @@ class SecurityManager(AbstractManager):
                             logger.info(message)
                             raise ResourceValidationError(message=message)
 
-
-
             return
 
         if properties["resource_id"] == "suricata" and "rules" in properties:
-            for r in properties["rules"] :
+            for r in properties["rules"]:
                 ru = rule.parse(r)
-                if not ru :
+                if not ru:
                     message = "Invalid Suricata rule: %s" % r
                     logger.info(message)
                     raise ResourceValidationError(message=message)
-
-
 
     def provide_resources(self, user_info, payload=None):
 
@@ -156,13 +155,17 @@ class SecurityManager(AbstractManager):
 
         def print_payload(properties, title=None):
             if title:
-                logger.debug("%s:" % title)	
+                logger.debug("%s:" % title)
             for k in properties.keys():
                 if isinstance(properties[k], dict):
-                    logger.debug("#"+k)
+                    logger.debug("#" + k)
                     print_payload(properties[k])
                 else:
-                    logger.debug("%s: %s" % (k, isinstance(properties[k], str) and len(properties[k]) > 100 and properties[k][:30]+"..."+properties[k][-30:] or properties[k]))
+                    logger.debug("%s: %s" % (k,
+                                             isinstance(properties[k], str) and len(properties[k]) > 100 and properties[
+                                                                                                                 k][
+                                                                                                             :30] + "..." +
+                                             properties[k][-30:] or properties[k]))
 
         print_payload(resource, "Resource")
 
@@ -187,16 +190,17 @@ class SecurityManager(AbstractManager):
         properties = resource["properties"]
 
         response = {}
+        response['random_id'] = random_id
         resource_id = properties["resource_id"]
 
-        if "testbed" in properties :
+        if "testbed" in properties:
             testbed = properties["testbed"]
             try:
                 os_project_id = user_info.testbed_tenants[TESTBED_MAPPING[testbed]]
             except Exception:
                 os_project_id = user_info.os_project_id
 
-        if resource_id in OPENBATONRESOURCES :
+        if resource_id in OPENBATONRESOURCES:
             ob_project_id = user_info.ob_project_id
             logger.debug("Got Open Baton project id %s" % ob_project_id)
 
@@ -221,7 +225,8 @@ class SecurityManager(AbstractManager):
                 elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
                 dashboard_template = get_config("log-collector", "dashboard-template", config_path)
                 kibana_port = get_config("log-collector", "kibana-port", config_path)
-                logger.debug("LEK_ip:{} - elastic_port:{} - kibana_port:{}".format(collector_ip, elastic_port, kibana_port))
+                logger.debug(
+                    "LEK_ip:{} - elastic_port:{} - kibana_port:{}".format(collector_ip, elastic_port, kibana_port))
 
                 '''Selection of the Elasticsearch Index'''
                 conn = sqlite3.connect(self.resources_db)
@@ -240,8 +245,9 @@ class SecurityManager(AbstractManager):
                     elastic_index = random_string(15)
                     dashboard_id = random_string(15)
                     try:
-                        with ThreadPoolExecutor(max_workers=1) as executor :
-                            future = executor.submit(create_kibana_dashboard, elastic_index,dashboard_path, dashboard_id)
+                        with ThreadPoolExecutor(max_workers=1) as executor:
+                            future = executor.submit(create_kibana_dashboard, elastic_index, dashboard_path,
+                                                     dashboard_id)
                             future.result(10)
                     except Exception as e:
                         logger.error("Error creating Kibana dashboard: %s" % e)
@@ -263,7 +269,9 @@ class SecurityManager(AbstractManager):
                 conf = ""
                 with open(rsyslog_conf) as fd_old:
                     for line in fd_old:
-                        conf += line.replace("test", elastic_index).replace("#", "").replace('target=""', 'target="%s"' % collector_ip).replace('port=""', 'port="%s"' % logstash_port)
+                        conf += line.replace("test", elastic_index).replace("#", "").replace('target=""',
+                                                                                             'target="%s"' % collector_ip).replace(
+                            'port=""', 'port="%s"' % logstash_port)
 
                 with open(rsyslog_conf, "w") as fd_new:
                     fd_new.write(conf)
@@ -272,9 +280,9 @@ class SecurityManager(AbstractManager):
                                                       get_config("api", "port", config_file_path=config_path),
                                                       random_id)
                 logger.debug("Dashboard link: %s" % link)
-                #response["log_dashboard_link"] = link
+                # response["log_dashboard_link"] = link
                 response["log_dashboard_link"] = "Loading"
-                #response.append(json.dumps({"log_dashboard_link": link}))
+                # response.append(json.dumps({"log_dashboard_link": link}))
 
             if resource_id == "firewall":
                 '''Modify scripts with custom configuration'''
@@ -320,13 +328,13 @@ class SecurityManager(AbstractManager):
                                                properties["resource_id"], random_id)
                 logger.debug(link)
                 response["download_link"] = link
-		# url from dev template
-                #response["download_link"] = scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
+                # url from dev template
+                # response["download_link"] = scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
 
                 update = False
                 disable_port_security = False
             else:
-                #testbed = properties["testbed"]
+                # testbed = properties["testbed"]
                 vnfd = {}
                 with open("%s/vnfd.json" % tmp_files_path, "r") as fd:
                     vnfd = json.loads(fd.read())
@@ -342,30 +350,29 @@ class SecurityManager(AbstractManager):
                 vnfd["vdu"][0]["vm_image"][0] = properties["os_image_name"]
 
                 '''
-                if "lan_name" in properties :
+                if "lan_name" in properties:
                     vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"] = properties["lan_name"]
                     vnfd["virtual_link"][0]["name"] = properties["lan_name"]
 
                 body = {}
 
-                #if "ssh_pub_key"
-                if "ssh_key" in properties :
-
+                # if "ssh_pub_key"
+                if "ssh_key" in properties:
                     key_name = "securityResourceKey"
                     open_baton.import_key(properties["ssh_key"], key_name)
-                    body = {"keys" : [ key_name ]}
+                    body = {"keys": [key_name]}
 
                 with open("%s/vnfd.json" % tmp_files_path, "w") as fd:
                     fd.write(json.dumps(vnfd))
 
                 # if problems occur when all VNF have same name so uncomment
                 with open("%s/Metadata.yaml" % tmp_files_path, "r") as f:
-                #    #meta_yaml = json.loads(f.read())
+                    #    #meta_yaml = json.loads(f.read())
                     meta_yaml = yaml.load(f)
 
                 with open("%s/Metadata.yaml" % tmp_files_path, "w") as f:
                     meta_yaml["name"] += ("-%s" % random_id)
-                #    #f.write(json.dumps(meta_yaml))
+                    #    #f.write(json.dumps(meta_yaml))
                     yaml.dump(meta_yaml, f)
 
                 '''Prepare VNFPackage'''
@@ -377,7 +384,7 @@ class SecurityManager(AbstractManager):
                     with ThreadPoolExecutor(max_workers=1) as executor:
                         future = executor.submit(open_baton.deploy_package, tar_filename, body, resource_id)
                         return_val = future.result(60)
- 
+
                     nsr_details = json.loads(return_val)
                     nsr_id = nsr_details["id"]
                     nsd_id = nsr_details["descriptor_reference"]
@@ -385,7 +392,7 @@ class SecurityManager(AbstractManager):
                     update = True
                     disable_port_security = True
 
-                except Exception as e :
+                except Exception as e:
                     exc_type, exc_value, exc_traceback = sys.exc_info()
                     traceback.print_tb(exc_traceback)
                     msg = e.message or e.args
@@ -396,9 +403,10 @@ class SecurityManager(AbstractManager):
                     disable_port_security = False
                     response["NSR Details"] = "ERROR: %s" % message
 
-        elif resource_id == "pfsense" :
+        elif resource_id == "pfsense":
 
             response = {}
+            response['random_id'] = random_id
 
             openstack = OSclient(testbed, username, os_project_id)
             ob_project_id = user_info.ob_project_id
@@ -416,8 +424,8 @@ class SecurityManager(AbstractManager):
                 update = True
                 logger.debug("ip: %s, len %d" % (lan_ip, len(lan_ip)))
 
-                #Deploy bridge VM as pfsense slave
-                logger.info("Starting deploing bridge VM") 
+                # Deploy bridge VM as pfsense slave
+                logger.info("Starting deploing bridge VM")
                 scripts_url = "%s/bridge.tar" % self.get_config_value("remote-files", "url")
                 tar_filename = "%s/bridge.tar" % tmp_files_path
 
@@ -430,7 +438,7 @@ class SecurityManager(AbstractManager):
                 tar = tarfile.open(name=tar_filename, mode="r")
                 tar.extractall(path=tmp_files_path)
                 tar.close()
-                
+
                 with open("%s/vnfd.json" % tmp_files_path, "r") as fd:
                     vnfd = json.loads(fd.read())
 
@@ -439,10 +447,11 @@ class SecurityManager(AbstractManager):
 
                 vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"] = properties["lan_name"]
                 vnfd["virtual_link"][0]["name"] = properties["lan_name"]
-                logger.debug("virtual_link: %s, vdu connection_point: %s" % (vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"], \
-                                                                             vnfd["virtual_link"][0]["name"]))
-                
-                logger.info("packing VNFD") 
+                logger.debug("virtual_link: %s, vdu connection_point: %s" % (
+                    vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"], \
+                    vnfd["virtual_link"][0]["name"]))
+
+                logger.info("packing VNFD")
                 with open("%s/vnfd.json" % tmp_files_path, "w") as fd:
                     fd.write(json.dumps(vnfd))
                 tar = tarfile.open(name=tar_filename, mode='w')
@@ -454,29 +463,35 @@ class SecurityManager(AbstractManager):
                     with ThreadPoolExecutor(max_workers=1) as executor:
                         future = executor.submit(open_baton.deploy_package, tar_filename, {}, "bridge")
                         return_val = future.result(60)
- 
+
                     nsr_details = json.loads(return_val)
                     logger.debug(nsr_details)
 
                     # saving bridge info to db to later update phase
                     conn = sqlite3.connect(self.resources_db)
                     cur = conn.cursor()
-                    #TODO remove OB id after deploying bridge from OS
+                    # TODO remove OB id after deploying bridge from OS
                     query = "INSERT INTO resources (username, resource_id, ob_project_id, ob_nsr_id, ob_nsd_id, testbed, random_id, os_project_id, os_instance_id, to_update) \
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            
+
                     logger.info("Saving project to db. user=%s, resource_id=%s" % (username, resource_id))
                     logger.debug("Executing %s" % query)
-                    logger.debug("value = {%s, %s, %s, %s, %s, %s, %s, %s, %s, %s}" % (username, "bridge", ob_project_id, nsr_details["id"], nsr_details["descriptor_reference"], testbed, random_id, os_project_id, "NONE", True))
-            
-                    cur.execute(query, (username, "bridge", ob_project_id, nsr_details["id"], nsr_details["descriptor_reference"], testbed, random_id, os_project_id, "NONE", True))
+                    logger.debug("value = {%s, %s, %s, %s, %s, %s, %s, %s, %s, %s}" % (
+                        username, "bridge", ob_project_id, nsr_details["id"], nsr_details["descriptor_reference"],
+                        testbed,
+                        random_id, os_project_id, "NONE", True))
+
+                    cur.execute(query, (
+                        username, "bridge", ob_project_id, nsr_details["id"], nsr_details["descriptor_reference"],
+                        testbed,
+                        random_id, os_project_id, "NONE", True))
                     conn.commit()
                     conn.close()
 
                     response["status"] = "loading"
 
-                except Exception as e :
-                    #TODO
+                except Exception as e:
+                    # TODO
                     exc_type, exc_value, exc_traceback = sys.exc_info()
                     traceback.print_tb(exc_traceback)
                     msg = e.message or e.args
@@ -486,7 +501,7 @@ class SecurityManager(AbstractManager):
                     update = False
                     disable_port_security = False
                     response["NSR Details"] = "ERROR: %s" % message
-    
+
 
             except Exception as e:
                 logger.error(e)
@@ -501,9 +516,15 @@ class SecurityManager(AbstractManager):
         logger.info("Saving project to db. user=%s, resource_id=%s" % (username, resource_id))
         logger.debug("Executing %s" % query)
         logger.debug("lan_ip obj type: %s" % type(lan_ip))
-        logger.debug("value = {%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s}" % (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security, lan_ip))
+        logger.debug("value = {%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s}" % (
+            username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id,
+            update,
+            disable_port_security, lan_ip))
 
-        cur.execute(query, (username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id, update, disable_port_security, lan_ip, floating_ip))
+        cur.execute(query, (
+            username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id,
+            update,
+            disable_port_security, lan_ip, floating_ip))
         conn.commit()
         conn.close()
 
@@ -512,7 +533,7 @@ class SecurityManager(AbstractManager):
         '''
         logger.debug("Responding %s" % json.dumps(response))
         return [json.dumps(response)]
-        #return [json.dumps({"status": "NULL"})]
+        # return [json.dumps({"status": "NULL"})]
 
     def configure_ELK(self, username, random_id):
         '''Repush index-pattern'''
@@ -520,11 +541,11 @@ class SecurityManager(AbstractManager):
         conn_elastic = sqlite3.connect(self.resources_db)
         conn_elastic.row_factory = sqlite3.Row
         cur = conn_elastic.cursor()
-        query = "SELECT e.elastic_index FROM resources AS r JOIN elastic_indexes AS e ON r.username = e.username WHERE e.username=?" # WHERE r.to_update='True'"
-        res = cur.execute(query, (username, ))
+        query = "SELECT e.elastic_index FROM resources AS r JOIN elastic_indexes AS e ON r.username = e.username WHERE e.username=?"  # WHERE r.to_update='True'"
+        res = cur.execute(query, (username,))
         elastic_index = res.fetchone()
         conn_elastic.close()
-    
+
         if elastic_index:
             index = elastic_index["elastic_index"]
             logger.info("Creating Elasticsearch index")
@@ -545,21 +566,22 @@ class SecurityManager(AbstractManager):
     def _update_pfsense(self, testbed, os_project_id, username, random_id, resource_id):
         result = {}
         try:
-            logger.info("Disabling port security on VM") 
+            logger.info("Disabling port security on VM")
             logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
             openstack = OSclient(testbed, "", os_project_id)
-        
+
             for srv in openstack.list_server(os_project_id):
                 if re.search("pfsense", srv.name) and srv.tenant_id == os_project_id:
                     openstack.allow_forwarding(srv.id)
                     disable_port_security = False
                     to_update = False
                     query = "UPDATE resources SET disable_port_security = ?, to_update = ?  WHERE username = ? AND random_id = ? AND resource_id = ?"
-                    execute_query(self.resources_db, query, (disable_port_security, to_update, username, random_id, resource_id))
+                    execute_query(self.resources_db, query,
+                                  (disable_port_security, to_update, username, random_id, resource_id))
         except Exception as e:
             logger.error("Error disabling port security: {0}".format(e))
             result["status"] = "ERROR disabling port security"
-        
+
         return result
 
     def _update_bridge(self, ob_project_id, nsr_id, username, random_id, ob_nsd_id):
@@ -571,7 +593,7 @@ class SecurityManager(AbstractManager):
         ob_resp = nsr_agent.find(nsr_id)
         time.sleep(5)
         nsr_details = json.loads(ob_resp)
-        
+
         if len(nsr_details["vnfr"]) > 0 and len(nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"]) > 0:
             bridge_vdu = nsr_details["vnfr"][0]["vdu"][0]
             floating_ip = bridge_vdu["vnfc_instance"][0]["floatingIps"][0]["ip"]
@@ -587,14 +609,15 @@ class SecurityManager(AbstractManager):
             logger.debug(pfsense_lan_ip)
             try:
                 tmp_files_path = "%s/tmp/%s" % (self.local_files_path, random_id)
-                pfsense_scripts_url = "%s/pfsense_utils.py" % re.sub("/etc/resources", "/eu/softfire/sec/utils",self.get_config_value("remote-files", "url"))
+                pfsense_scripts_url = "%s/pfsense_utils.py" % re.sub("/etc/resources", "/eu/softfire/sec/utils",
+                                                                     self.get_config_value("remote-files", "url"))
                 script_filename = "%s/pfsenes_utils.py" % tmp_files_path
-        
+
                 r_script = requests.get(pfsense_scripts_url, stream=True)
                 with open(script_filename, 'wb') as fd:
                     for chunk in r_script.iter_content(chunk_size=128):
-                        fd.write(chunk)                            
-        
+                        fd.write(chunk)
+
                 exit_status = os.system("python %s %s %s" % (script_filename, floating_ip, pfsense_lan_ip))
                 logger.debug("exit status %d" % exit_status)
                 if exit_status != 0:
@@ -603,27 +626,29 @@ class SecurityManager(AbstractManager):
                     try:
                         open_baton = OBClient(ob_project_id)
                         open_baton.delete_ns(nsr_id=nsr_id, nsd_id=ob_nsd_id)
-            
+
                         query = "DELETE FROM resources WHERE username = ? AND resource_id = ?"
                         logger.debug("executing query")
                         execute_query(self.resources_db, query, (username, "bridge"))
 
-                        result["floating ip"] = [pfsense_floating_ip, {"VM credentials": {"username": "root", "password": "pfsense"}}]
+                        result["floating ip"] = [pfsense_floating_ip,
+                                                 {"VM credentials": {"username": "root", "password": "pfsense"}}]
                         result["lan ip"] = pfsense_lan_ip
-                        result["dashboard credentials"] =  {"username": "admin", "password": "pfsense"}
+                        result["dashboard credentials"] = {"username": "admin", "password": "pfsense"}
                     except Exception as e:
                         logger.error("Problem contacting Open Baton: {}".format(e))
                         result["status"] = "ERROR: OB error"
             except Exception as e:
-               logger.error(e)
-               result["status"] = "ERROR deploying pfense: network error"
+                logger.error(e)
+                result["status"] = "ERROR deploying pfense: network error"
         else:
             logger.info("bridge not ready")
             result["status"] = "Loading"
         logger.debug(result)
         return result
 
-    def _update_ob_resources(self, ob_project_id, nsr_id, username, os_project_id, testbed, disable_port_security, resource_id, random_id):
+    def _update_ob_resources(self, ob_project_id, nsr_id, username, os_project_id, testbed, disable_port_security,
+                             resource_id, random_id):
         result = {}
 
         try:
@@ -634,15 +659,15 @@ class SecurityManager(AbstractManager):
             time.sleep(5)
             nsr_details = json.loads(ob_resp)
             result["status"] = nsr_details["status"]
-        
+
             """Disable port security on VM's ports"""
             if disable_port_security == True:
                 try:
                     logger.info("Disabling port security on VM")
-        
+
                     logger.debug("connecting to openstak. testbed=%s, project=%s" % (testbed, os_project_id))
                     openstack = OSclient(testbed, "", os_project_id)
-        
+
                     for vnfr in nsr_details["vnfr"]:
                         for vdu in vnfr["vdu"]:
                             for vnfc_instance in vdu["vnfc_instance"]:
@@ -659,45 +684,45 @@ class SecurityManager(AbstractManager):
         except Exception as e:
             logger.error("Error contacting Open Baton to check resource status, nsr_id: %s\n%s" % (nsr_id, e))
             result["status"] = "ERROR checking status"
-        
+
         if result["status"] == "ACTIVE":
             result["ip"] = nsr_details["vnfr"][0]["vdu"][0]["vnfc_instance"][0]["floatingIps"][0]["ip"]
             if resource_id == "firewall":
                 try:
                     api_url = "http://%s:5000" % result["ip"]
                     api_resp = requests.get(api_url)
-                    logger.debug(api_resp)                      
+                    logger.debug(api_resp)
                     result["api_url"] = api_url
                 except Exception as e:
                     logger.error(e)
                     result["status"] = "VM is running but API are unavailable"
-       
-            dashboard_l =self.configure_ELK(username, random_id)
+
+            dashboard_l = self.configure_ELK(username, random_id)
             if dashboard_l:
                 result["dashboard_log_link"] = dashboard_l
-        
+
             try:
                 """Update DB entry to stop sending update"""
                 query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
                 execute_query(self.resources_db, query, (nsr_id, username))
             except Exception:
                 logger.error("Error updating resource row into DB. attr to_update")
-            
+
         if re.match("ERROR", result["status"]):
-            try :
+            try:
                 query = "UPDATE resources SET to_update='False' WHERE ob_nsr_id=? AND username=?"
                 execute_query(self.resources_db, query, (nsr_id, username))
             except Exception as e:
                 logger.error(e)
 
+        result["NSR Details"] = {"status": nsr_details.get('status'), 'nsr_id': nsr_details.get('id')}
+
         return result
-
-
 
     def _update_status(self) -> dict:
         response = {}
 
-        try :
+        try:
             conn = sqlite3.connect(self.resources_db)
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
@@ -706,7 +731,7 @@ class SecurityManager(AbstractManager):
             rows = res.fetchall()
             if len(rows) > 0:
                 logger.debug("resource to check: %d" % len(rows))
-        except Exception as e :
+        except Exception as e:
             logger.error("Problem reading the Resources DB: %s" % e)
             conn.close()
             # FIXME this return
@@ -740,9 +765,13 @@ class SecurityManager(AbstractManager):
                     resource_response = self._update_bridge(ob_project_id, nsr_id, username, random_id, r["ob_nsd_id"])
 
                 if resource_id == "suricata" or resource_id == "firewall":
-                    resource_response = self._update_ob_resources(ob_project_id, nsr_id, username, os_project_id, testbed, disable_port_security, resource_id, random_id)
+                    resource_response = self._update_ob_resources(ob_project_id, nsr_id, username, os_project_id,
+                                                                  testbed, disable_port_security, resource_id,
+                                                                  random_id)
 
-            else :
+                resource_response['random_id'] = random_id
+
+            else:
                 resource_response = {}
 
             if len(resource_response):
@@ -774,13 +803,13 @@ class SecurityManager(AbstractManager):
                 except Exception as e:
                     logger.error("Problem contacting Open Baton: {}".format(e))
 
-#            if r["os_instance_id"] != "" :
+                    #            if r["os_instance_id"] != "" :
             if r["resource_id"] == "pfsense":
                 try:
                     logger.debug("Deleting resource with id: {0}".format(r["os_instance_id"]))
                     openstack = OSclient(r["testbed"], username, r["os_project_id"])
                     openstack.delete_server(r["os_instance_id"])
-                except Exception as e :
+                except Exception as e:
                     logger.error("Problem contacting OpenStack: {0}".format(e))
             file_path = "%s/tmp/%s" % (self.local_files_path, r["random_id"])
             try:
@@ -799,27 +828,30 @@ class SecurityManager(AbstractManager):
 
         return
 
+
 if __name__ == "__main__":
     from eu.softfire.sec.utils.utils import config_path
     import os
 
-    #This is a test-case UserInfo to test the component whitout the Experiment Manager
-    class UserInfo :
+
+    # This is a test-case UserInfo to test the component whitout the Experiment Manager
+    class UserInfo:
         def __init__(self, username, password, os_project_id, ob_project_id):
             self.name = username
             self.password = password
             self.os_project_id = os_project_id
             self.ob_project_id = ob_project_id
 
+
     os.environ["http_proxy"] = ""
-# Fokus
+    # Fokus
     user = UserInfo("", "", "2927f3e448ef49f782e13af735036756", "ee06166e-d6e2-4743-8edc-c33e1e76899e")
-# Fokus-dev
-#    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
-# Surrey
-#    user = UserInfo("softfire", "hRvB2u8K", "bce66fc15ad94db2b291bfe12c8b0f8f", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
-# ADS
-#    user = UserInfo("softfire", "hRvB2u8K", "9dfc795ab5bb4bd89ca85969fcc93bfd", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+    # Fokus-dev
+    #    user = UserInfo("softfire", "hRvB2u8K", "5ff22e03cfb94ed6b8194aa5532444be", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+    # Surrey
+    #    user = UserInfo("softfire", "hRvB2u8K", "bce66fc15ad94db2b291bfe12c8b0f8f", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
+    # ADS
+    #    user = UserInfo("softfire", "hRvB2u8K", "9dfc795ab5bb4bd89ca85969fcc93bfd", "12bff78c-71a3-4b27-81cc-bba3d48c1a72")
 
     pfsense_resource = """properties:
         resource_id: pfsense
@@ -850,8 +882,8 @@ if __name__ == "__main__":
 
     resource = fw_resource
     sec = SecurityManager(config_path)
-    #sec.validate_resources(user, payload=resource)
-    #sec.provide_resources(user, payload=resource)
+    # sec.validate_resources(user, payload=resource)
+    # sec.provide_resources(user, payload=resource)
     input("hit enter to update...")
     while True:
         sec._update_status()
