@@ -552,8 +552,8 @@ class SecurityManager(AbstractManager):
             for srv in openstack.list_server(os_project_id):
                 if re.search("pfsense", srv.name) and srv.tenant_id == os_project_id:
                     openstack.allow_forwarding(srv.id)
-                    disable_port_security = "False"
-                    to_update = "False"
+                    disable_port_security = False
+                    to_update = False
                     query = "UPDATE resources SET disable_port_security = ?, to_update = ?  WHERE username = ? AND random_id = ? AND resource_id = ?"
                     execute_query(self.resources_db, query, (disable_port_security, to_update, username, random_id, resource_id))
         except Exception as e:
@@ -671,8 +671,10 @@ class SecurityManager(AbstractManager):
                 except Exception as e:
                     logger.error(e)
                     result["status"] = "VM is running but API are unavailable"
-        
-            result["dashboard_log_link"] = self.configure_ELK(username, random_id)
+       
+            dashboard_l =self.configure_ELK(username, random_id)
+            if dashboard_l:
+                result["dashboard_log_link"] = dashboard_l
         
             try:
                 """Update DB entry to stop sending update"""
@@ -693,7 +695,6 @@ class SecurityManager(AbstractManager):
 
 
     def _update_status(self) -> dict:
-        logger.debug("Checking status update")
         response = {}
 
         try :
@@ -703,7 +704,8 @@ class SecurityManager(AbstractManager):
             query = "SELECT * FROM resources WHERE to_update=1"
             res = cur.execute(query)
             rows = res.fetchall()
-            logger.debug("resource to check: %d" % len(rows))
+            if len(rows) > 0:
+                logger.debug("resource to check: %d" % len(rows))
         except Exception as e :
             logger.error("Problem reading the Resources DB: %s" % e)
             conn.close()
