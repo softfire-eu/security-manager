@@ -217,11 +217,13 @@ class OSclient :
             # see: https://github.com/openstack/python-neutronclient/blob/master/neutronclient/v2_0/client.py
             # and: https://developer.openstack.org/api-ref/network/v2/
             try:
-                ip = self.allocate_floating_ips(ext_net, 1)[0]
+                e_net = [n for n in self.neutron.list_networks()['networks'] if n['router:external']][0]
+                ip = self.allocate_floating_ips(e_net, 1)[0]['floatingip']['floating_ip_address']
+                logger.debug("new floating ip: %s" % ip)
                 new_server.add_floating_ip(ip, lan_ip_dict[selected_networks['wan']][0])
-                OpenStackDeploymentError(message="Unable to associate Floating IP")
             except Exception as e:
                 logger.error("Unable to associate floating ip to pfsense")
+                OpenStackDeploymentError(message="Unable to associate Floating IP")
 
         return {"id" : id, "ip" : floating_ip_to_add, "lan_ip": lan_ip_dict[selected_networks['lan']][0]}
 
