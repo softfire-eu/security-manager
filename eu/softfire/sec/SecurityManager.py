@@ -280,9 +280,7 @@ class SecurityManager(AbstractManager):
                                                       get_config("api", "port", config_file_path=config_path),
                                                       random_id)
                 logger.debug("Dashboard link: %s" % link)
-                # response["log_dashboard_link"] = link
                 response["log_dashboard_link"] = "Loading"
-                # response.append(json.dumps({"log_dashboard_link": link}))
 
             if resource_id == "firewall":
                 '''Modify scripts with custom configuration'''
@@ -328,58 +326,45 @@ class SecurityManager(AbstractManager):
                                                properties["resource_id"], random_id)
                 logger.debug(link)
                 response["download_link"] = link
-                # url from dev template
-                # response["download_link"] = scripts_url = "%s/%s.tar" % (self.get_config_value("remote-files", "url"), properties["resource_id"])
 
                 update = False
                 disable_port_security = False
             else:
-                # testbed = properties["testbed"]
                 vnfd = {}
                 with open("%s/vnfd.json" % tmp_files_path, "r") as fd:
                     vnfd = json.loads(fd.read())
-                print_payload(vnfd, "VNF Descriptor")
                 # if problems occur when all VNF have same name so uncomment
                 vnfd["name"] += ("-%s" % random_id)
                 vnfd["type"] = vnfd["name"]
 
                 vnfd["vdu"][0]["vimInstanceName"] = ["vim-instance-%s" % testbed]
-
-                '''
-
-                vnfd["vdu"][0]["vm_image"][0] = properties["os_image_name"]
-
-                '''
                 if "lan_name" in properties:
                     vnfd["vdu"][0]["vnfc"][0]["connection_point"][0]["virtual_link_reference"] = properties["lan_name"]
                     vnfd["virtual_link"][0]["name"] = properties["lan_name"]
 
                 body = {}
 
-                # if "ssh_pub_key"
                 if "ssh_key" in properties:
                     key_name = "securityResourceKey"
                     open_baton.import_key(properties["ssh_key"], key_name)
                     body = {"keys": [key_name]}
 
+                print_payload(vnfd, "VNF Descriptor")
                 with open("%s/vnfd.json" % tmp_files_path, "w") as fd:
                     fd.write(json.dumps(vnfd))
 
                 # if problems occur when all VNF have same name so uncomment
                 with open("%s/Metadata.yaml" % tmp_files_path, "r") as f:
-                    #    #meta_yaml = json.loads(f.read())
                     meta_yaml = yaml.load(f)
 
                 with open("%s/Metadata.yaml" % tmp_files_path, "w") as f:
                     meta_yaml["name"] += ("-%s" % random_id)
-                    #    #f.write(json.dumps(meta_yaml))
                     yaml.dump(meta_yaml, f)
 
                 '''Prepare VNFPackage'''
                 tar.add('%s' % tmp_files_path, arcname='')
                 tar.close()
                 nsr_details = {}
-                logger.debug("Open Baton project_id: %s" % ob_project_id)
                 try:
                     with ThreadPoolExecutor(max_workers=1) as executor:
                         future = executor.submit(open_baton.deploy_package, tar_filename, body, resource_id)
@@ -515,7 +500,6 @@ class SecurityManager(AbstractManager):
 
         logger.info("Saving project to db. user=%s, resource_id=%s" % (username, resource_id))
         logger.debug("Executing %s" % query)
-        logger.debug("lan_ip obj type: %s" % type(lan_ip))
         logger.debug("value = {%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s}" % (
             username, resource_id, testbed, ob_project_id, nsr_id, nsd_id, random_id, os_project_id, os_instance_id,
             update,
@@ -533,7 +517,6 @@ class SecurityManager(AbstractManager):
         '''
         logger.debug("Responding %s" % json.dumps(response))
         return [json.dumps(response)]
-        # return [json.dumps({"status": "NULL"})]
 
     def configure_ELK(self, username, random_id):
         '''Repush index-pattern'''

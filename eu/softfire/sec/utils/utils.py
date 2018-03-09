@@ -28,7 +28,7 @@ def get_kibana_element(el_type, el_id):
     elastic_ip = get_config("log-collector", "ip", config_path)
     elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
     resp = requests.get("http://%s:%s/.kibana/%s/%s" % (elastic_ip, elastic_port, el_type, el_id))
-    logger.debug("Kibana element type=%s, GET: %s" % (el_type, resp))
+    logger.debug("Kibana element type=%s, GET: %s" % (el_type, resp.status_code))
     return resp.json()
 
 
@@ -36,7 +36,7 @@ def post_kibana_element(el_type, el_id, data):
     elastic_ip = get_config("log-collector", "ip", config_path)
     elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
     resp = requests.post("http://%s:%s/.kibana/%s/%s" % (elastic_ip, elastic_port, el_type, el_id), data=data)
-    logger.debug("elem type=%s, id=%s" % (el_type, el_id))
+    logger.debug("elem type=%s, id=%s, resp=%s" % (el_type, el_id, resp.status_code))
     return resp.json()
 
 
@@ -52,7 +52,7 @@ def push_kibana_index(elastic_index):
     data = {"title": "%s-*" % elastic_index, "timeFieldName": "@timestamp", "fields": r["_source"]["fields"]}
     #logger.debug("Pushing %s to %s" % (data, url))
     resp = requests.post(url, data=json.dumps(data))
-    logger.debug("kibana index POST: %s" % resp)
+    logger.debug("kibana index POST: %s" % resp.status_code)
 
 
 def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id):
@@ -68,7 +68,6 @@ def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id):
     '''Push of the Index pattern to Elasticsearch'''
     push_kibana_index(elastic_index)
 
-    logger.debug("Dashboard -----------------------:")
     dashboard = get_kibana_element("dashboard", dashboard_template)
     panels = json.loads(dashboard["_source"]["panelsJSON"])
 
@@ -88,7 +87,6 @@ def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id):
             el_id = random_string(15)
             r = post_kibana_element(p["type"], el_id, json.dumps(element["_source"]))
 
-            #logger.debug("element POST: %s" % r)
             '''Attach new id of the element'''
             panels[i]["id"] = el_id
         else:
@@ -98,7 +96,7 @@ def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id):
 
     '''Push new dashboard'''
     r = post_kibana_element("dashboard", dashboard_id, json.dumps(dashboard["_source"]))
-    #logger.debug("dashboard final POST: %s" % r)
+    logger.debug("dashboard final POST: %s" % r.status_code)
     store_kibana_dashboard(dashboard_path, collector_ip, kibana_port, dashboard_id)
     return
 
