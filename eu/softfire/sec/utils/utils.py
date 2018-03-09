@@ -37,7 +37,6 @@ def post_kibana_element(el_type, el_id, data):
     elastic_port = get_config("log-collector", "elasticsearch-port", config_path)
     resp = requests.post("http://%s:%s/.kibana/%s/%s" % (elastic_ip, elastic_port, el_type, el_id), data=data)
     logger.debug("elem type=%s, id=%s" % (el_type, el_id))
-    print(data)
     return resp.json()
 
 
@@ -89,7 +88,7 @@ def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id):
             el_id = random_string(15)
             r = post_kibana_element(p["type"], el_id, json.dumps(element["_source"]))
 
-            logger.debug("element POST: %s" % r)
+            #logger.debug("element POST: %s" % r)
             '''Attach new id of the element'''
             panels[i]["id"] = el_id
         else:
@@ -99,7 +98,7 @@ def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id):
 
     '''Push new dashboard'''
     r = post_kibana_element("dashboard", dashboard_id, json.dumps(dashboard["_source"]))
-    logger.debug("dashboard final POST: %s" % r)
+    #logger.debug("dashboard final POST: %s" % r)
     store_kibana_dashboard(dashboard_path, collector_ip, kibana_port, dashboard_id)
     return
 

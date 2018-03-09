@@ -52,15 +52,6 @@ class OBClient :
         nsd["vld"] = virtual_links
 
         logger.debug(nsd)
-#        for k in nsd.keys():
-#            print("%s:%s" % (k, nsd[k]))
-
-#	nsd_dummy = {
-#                "name": "NSD Security Firewall",
-#                "version": "softfire_version",
-#                "vendor": "Security Reply",
-#                "vnfd": ,
-#                "vld": virtual_links}
 
         with open("/tmp/nsd.json", "w") as nsd_f:
             nsd_f.write(json.dumps(nsd))
@@ -71,7 +62,6 @@ class OBClient :
         nsr = nsr_agent.create(nsd["id"], json.dumps(body))
 
         nsr_details = nsr_agent.find(nsr["id"])
- #       logger.debug(nsr_details)
 
         return nsr_details
 
@@ -94,7 +84,6 @@ class OBClient :
         logger.debug("project id: %s" % self.project_id)
         key_agent = agent.get_key_agent(project_id)
         for key in json.loads(key_agent.find()):
-            print(key)
             if key.get('name') == name:
                 key_agent.delete(key.get('id'))
                 break
