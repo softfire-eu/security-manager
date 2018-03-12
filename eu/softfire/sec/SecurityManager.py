@@ -770,23 +770,32 @@ class SecurityManager(AbstractManager):
         logger.info("Requested release_resources by user %s" % username)
         logger.debug("Arrived release_resources. Payload: %s" % payload)
 
+        try:
+            payload_dict = json.loads(payload)
+            random_id = payload_dict.get('random_id')
+        except Exception:
+            logger.error('Unable to deserialize payload of release_resources request: {}'.format(payload))
+            return
+
         conn = sqlite3.connect(self.resources_db)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
-        query = "SELECT * FROM resources WHERE username = ?"
-        res = cur.execute(query, (username,))
+        query = "SELECT * FROM resources WHERE username = ? AND random_id = ?"
+        res = cur.execute(query, (username, random_id,))
         rows = res.fetchall()
         logger.debug(rows)
         for r in rows:
-            if r["ob_nsr_id"] != "" and r["ob_nsr_id"] != "ERROR":
-                try:
-                    open_baton = OBClient(r["ob_project_id"])
-                    open_baton.delete_ns(nsr_id=r["ob_nsr_id"], nsd_id=r["ob_nsd_id"])
-                except Exception as e:
-                    logger.error("Problem contacting Open Baton: {}".format(e))
+            logger.debug('Releasing resource with random_id {}'.format(random_id))
+            if r['resource_id'] in OPENBATONRESOURCES:
+                    if r["ob_nsr_id"] != "" and r["ob_nsr_id"] != "ERROR":
+                        try:
+                            open_baton = OBClient(r["ob_project_id"])
+                            open_baton.delete_ns(nsr_id=r["ob_nsr_id"], nsd_id=r["ob_nsd_id"])
+                        except Exception as e:
+                            logger.error("Problem contacting Open Baton: {}".format(e))
 
-                    #            if r["os_instance_id"] != "" :
+                            #            if r["os_instance_id"] != "" :
             if r["resource_id"] == "pfsense":
                 try:
                     logger.debug("Deleting resource with id: {0}".format(r["os_instance_id"]))
@@ -800,11 +809,15 @@ class SecurityManager(AbstractManager):
             except FileNotFoundError:
                 logger.error("FileNotFoud: %s" % file_path)
 
-        query = "DELETE FROM resources WHERE username = ?"
-        cur.execute(query, (username,))
+        query = "DELETE FROM resources WHERE username = ? AND random_id = ?"
+        cur.execute(query, (username, random_id,))
 
-        query = "DELETE FROM elastic_indexes WHERE username = ?"
-        cur.execute(query, (username,))
+        query = "SELECT * FROM resources WHERE username = ?"
+        res = cur.execute(query, (username,))
+        if len(res.fetchall()) == 0:
+            logger.debug('Removing user entries from elastic_indexes table')
+            query = "DELETE FROM elastic_indexes WHERE username = ?"
+            cur.execute(query, (username,))
 
         conn.commit()
         conn.close()
