@@ -96,7 +96,7 @@ def create_kibana_dashboard(elastic_index, dashboard_path, dashboard_id):
 
     '''Push new dashboard'''
     r = post_kibana_element("dashboard", dashboard_id, json.dumps(dashboard["_source"]))
-    logger.debug("dashboard final POST: %s" % r.status_code)
+    logger.debug("dashboard final POST")
     store_kibana_dashboard(dashboard_path, collector_ip, kibana_port, dashboard_id)
     return
 
