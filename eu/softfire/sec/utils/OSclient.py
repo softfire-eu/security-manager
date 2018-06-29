@@ -78,11 +78,14 @@ class OSclient :
     def list_networks(self):
         networks_list = self.neutron.list_networks()['networks']
         logger.debug("found %d networks" % len(networks_list))
-        for n in networks_list:
-            logger.debug("net_name: %s, shared: %s, project_id: %s" % (n['name'], n['shared'], n['project_id']))
-        return {n['name']: n for n in networks_list}
+        #for n in networks_list:
+        #    logger.debug("net_name: %s, shared: %s, project_id: %s" % (n['name'], n['shared'], n['project_id']))
+        #return {n['name']: n for n in networks_list}
+        return networks_list
 
     def deploy_pfSense(self, selected_networks: dict):
+        # wait to not raise condition with NFV
+        time.sleep(20)
         ext_net = None
         logger.info("Deploing pfsense")
         image_name = utils.get_config("pfsense", "image_name", utils.config_path)
@@ -93,12 +96,20 @@ class OSclient :
         logger.info("Listing networks")
         networks = self.list_networks()
 
+        #logger.debug(networks)
+        #logger.debug("own net: %s" % ", ".join([n for n in networks if networks[n]['project_id'] == self.project_id])) 
+        #logger.debug("nets: #%s# #%s#" % (" ,".join([networks[n]['project_id'] for n in networks if n == "testing_lan"]), self.project_id))
 
         logger.info("checking networks")
         for k in selected_networks.keys():
-            if selected_networks[k] in networks.keys() and (networks[selected_networks[k]]['shared'] or networks[selected_networks[k]]['project_id'] == self.project_id):
-                logger.info("'%s' network found" % selected_networks[k])
-            else:
+            found = False
+            for net in networks:
+                if selected_networks[k] == net['name'] and (net['shared'] or net['project_id'] == self.project_id):
+                    logger.info("'%s' network found" % selected_networks[k])
+                    selected_networks[k] = net
+                    found = True
+            
+            if not found:
                 logger.info("'%s' network not found. Creating..." % selected_networks[k])
                 try:
                     #Network configs
@@ -110,16 +121,17 @@ class OSclient :
                     logger.debug("New network: {}".format(selected_networks[k]))
 
                     network_result = self.neutron.create_network(body=kwargs)['network']
-                    networks[selected_networks[k]] = network_result
+                    #networks[selected_networks[k]] = network_result
+                    selected_networks[k] = network_result
                     logger.debug("network result {}".format(network_result))
 
                     #subnet configs
-                    s = self.tenant_name + selected_networks[k]
+                    s = self.tenant_name + selected_networks[k]['name']
                     rand_num = int(hashlib.sha1(s.encode('utf-8')).hexdigest(), base=16) % 254 + 1
                     kwargs = {
                         'subnets': [
                             {
-                                'name': "subnet_%s" % selected_networks[k],
+                                'name': "subnet_%s" % selected_networks[k]['name'],
                                 'cidr': "192.%s.%s.0/24" % (rand_num, 1),
                                 'gateway_ip': '192.%s.%s.1' % (rand_num, 1),
                                 'ip_version': '4',
@@ -161,7 +173,7 @@ class OSclient :
                         
                         body_value = {'subnet_id': subnet_result["subnets"][0]['id']}
                         interface_result = self.neutron.add_interface_router(router=router_id, body=body_value)
-                        logger.debug(interface_result)
+                        logger.debug('Connecting interface: %s' % interface_result)
 
                     logger.info("network successfully created and configured")
                 except Exception as e:
@@ -173,7 +185,7 @@ class OSclient :
             image=self.nova.glance.find_image(image_name),
             flavor=self.nova.flavors.find(name=flavor),
             security_groups=["ob_sec_group"],
-            nics=[{'net-id': networks[selected_networks["wan"]]["id"]}, {'net-id': networks[selected_networks["lan"]]["id"]}]
+            nics=[{'net-id': selected_networks["wan"]["id"]}, {'net-id': selected_networks["lan"]["id"]}]
           )
         id = new_server.id
         logger.info("pfSense created, id: {}".format(id))
@@ -210,7 +222,7 @@ class OSclient :
                 break
 
         if floating_ip_to_add:
-            new_server.add_floating_ip(floating_ip_to_add, lan_ip_dict[selected_networks['wan']][0])
+            new_server.add_floating_ip(floating_ip_to_add, lan_ip_dict[selected_networks['wan']['name']][0])
             logger.debug("floating ip {0} added".format(floating_ip_to_add))
         else:
             #TODO add_floating_ip is deprecated. instead, use update_floatingip
@@ -220,12 +232,13 @@ class OSclient :
                 e_net = [n for n in self.neutron.list_networks()['networks'] if n['router:external']][0]
                 ip = self.allocate_floating_ips(e_net, 1)[0]['floatingip']['floating_ip_address']
                 logger.debug("new floating ip: %s" % ip)
-                new_server.add_floating_ip(ip, lan_ip_dict[selected_networks['wan']][0])
+                floating_ip_to_add = ip
+                new_server.add_floating_ip(ip, lan_ip_dict[selected_networks['wan']['name']][0])
             except Exception as e:
                 logger.error("Unable to associate floating ip to pfsense")
                 OpenStackDeploymentError(message="Unable to associate Floating IP")
 
-        return {"id" : id, "ip" : floating_ip_to_add, "lan_ip": lan_ip_dict[selected_networks['lan']][0]}
+        return {"id" : id, "ip" : floating_ip_to_add, "lan_ip": lan_ip_dict[selected_networks['lan']['name']][0]}
 
     def allocate_floating_ips(self, ext_net, fip_num=0):
         body = {
